@@ -144,7 +144,7 @@ if show_ash:
         bounds=[[sim.lat_min, sim.lon_min], [sim.lat_max, sim.lon_max]],
         opacity=0.9   # 🔥 almost full opacity
     ).add_to(m)
-    
+
 # ----------------------- Impact rings -----------------------
 if show_rings and max_radius_km > 0:
     for r in range(5000, max_radius_km * 1000 + 1, 5000):
