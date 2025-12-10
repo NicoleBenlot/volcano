@@ -7,6 +7,16 @@ from jinja2 import Template
 import matplotlib.pyplot as plt
 import base64
 from io import BytesIO
+from PIL import Image
+import io
+import math
+
+def array_to_base64_png(array):
+    img = Image.fromarray(array)
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+    return f"data:image/png;base64,{b64}"
 
 # ----------------------- Volcano Data -----------------------
 volcanoes = [
@@ -56,9 +66,20 @@ show_rings = st.sidebar.checkbox("Show Impact Rings", value=True)
 
 # ----------------------- Simulation Setup -----------------------
 v = next(v for v in volcanoes if v["name"] == selected_volcano)
-sim = VolcanoSimulation(volcano_x=v["lng"], volcano_y=v["lat"])
 settings = {0: {"max_radius": 0}, 1: {"max_radius": 5}, 2: {"max_radius": 12}, 3: {"max_radius": 25}, 4: {"max_radius": 50}}[alert_level]
-radius = settings["max_radius"] / 2 if settings["max_radius"] > 0 else 0.1
+max_radius_km = settings["max_radius"]
+radius = max_radius_km / 2 if max_radius_km > 0 else 0.1
+
+# Choose an extent in km around the volcano for the overlay grid (pad beyond max radius so tails show)
+extent_km = max(20, int(max_radius_km * 1.8))  # ensures visible area even for small alert levels
+
+# Instantiate simulation with geographic-aware bounds
+sim = VolcanoSimulation(
+    volcano_x=v["lng"],
+    volcano_y=v["lat"],
+    grid_res=240,
+    extent_km=extent_km
+)
 
 # ----------------------- Map Setup -----------------------
 m = folium.Map(location=[v["lat"], v["lng"]], zoom_start=9, control_scale=True)
@@ -73,16 +94,24 @@ for vdata in volcanoes:
         icon=folium.Icon(color=icon_color)
     ).add_to(m)
 
-# Hazard zone
-if show_damage:
+# Hazard zone (simple circle)
+if show_damage and max_radius_km > 0:
     folium.Circle(
         location=[v["lat"], v["lng"]],
-        radius=settings["max_radius"] * 1000,
+        radius=max_radius_km * 1000,
         color="orange",
         fill=True,
         fill_opacity=0.3,
         popup=f"Hazard zone: {selected_volcano}"
     ).add_to(m)
+
+# ----------------------- Helpers -----------------------
+def array_to_png_bytes(array):
+    img = Image.fromarray(array)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+    return buf
 
 # Damage overlay
 if show_damage:
@@ -90,33 +119,35 @@ if show_damage:
         radius,
         scale=alert_level,
         eq_mag_num=3.0,
-        max_radius=settings["max_radius"],
-        cmap_name="violet_yellow"
+        max_radius=max_radius_km,
+        cmap_name="inferno"   # 🔥 stronger contrast
     )
+    dmg_url = array_to_base64_png(dmg_img)
     folium.raster_layers.ImageOverlay(
-        image=dmg_img,
-        bounds=[[sim.y_min, sim.x_min], [sim.y_max, sim.x_max]],
-        opacity=0.85
+        image=dmg_url,
+        bounds=[[sim.lat_min, sim.lon_min], [sim.lat_max, sim.lon_max]],
+        opacity=1.0   # 🔥 full opacity
     ).add_to(m)
 
 # Ash overlay
 if show_ash:
     ash_img = sim.compute_ash_overlay(
-        radius,
+        radius * ash_scale,
         wind_dir,
         wind_speed,
-        settings["max_radius"],
-        cmap_name="white_gray_black"
+        max_radius=max_radius_km,
+        cmap_name="Greys"   # 🔥 sharper ash plume
     )
+    ash_url = array_to_base64_png(ash_img)
     folium.raster_layers.ImageOverlay(
-        image=ash_img,
-        bounds=[[sim.y_min, sim.x_min], [sim.y_max, sim.x_max]],
-        opacity=0.7
+        image=ash_url,
+        bounds=[[sim.lat_min, sim.lon_min], [sim.lat_max, sim.lon_max]],
+        opacity=0.9   # 🔥 almost full opacity
     ).add_to(m)
-
-# Impact rings
-if show_rings:
-    for r in range(5000, settings["max_radius"] * 1000, 5000):
+    
+# ----------------------- Impact rings -----------------------
+if show_rings and max_radius_km > 0:
+    for r in range(5000, max_radius_km * 1000 + 1, 5000):
         folium.Circle(
             location=[v["lat"], v["lng"]],
             radius=r,
@@ -167,7 +198,8 @@ def make_colorbar(cmap_name="violet_yellow", vmin=0, vmax=1, label="Damage Inten
     fig, ax = plt.subplots(figsize=(0.4, 3))
     norm = plt.Normalize(vmin=vmin, vmax=vmax)
 
-    # ✅ Use centralized colormap from volcano_models
+    # Use centralized colormap from volcano_models
+    from volcano_models import VolcanoSimulation
     cmap = VolcanoSimulation.get_colormap(cmap_name)
 
     fig.subplots_adjust(right=0.5)
