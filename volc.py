@@ -19,7 +19,7 @@ def array_to_base64_png(array):
 
 # ----------------------- Volcano Data -----------------------
 volcanoes = [
-    {"name": "Taal Volcano", "lat": 14.002, "lng": 120.997, "status": "Active"},
+    {"name": "Taal Volcano", "lat": 14.003, "lng": 120.997, "status": "Active"},
     {"name": "Mayon Volcano", "lat": 13.257, "lng": 123.685, "status": "Active"},
     {"name": "Pinatubo Volcano", "lat": 15.142, "lng": 120.349, "status": "Active"},
     {"name": "Kanlaon Volcano", "lat": 10.412, "lng": 123.132, "status": "Active"},
