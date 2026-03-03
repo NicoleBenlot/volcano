@@ -45,6 +45,7 @@ volcanoes = [
     {"name": "Mount Everest", "lat": 27.9881, "lng": 86.9250, "status": "Inactive"},
     {"name": "Mount Fuji", "lat": 35.3606, "lng": 138.7274, "status": "Active"},
     {"name": " Malabuyoc", "lat": 9.6500, "lng": 123.3167, "status": "Active"},
+    {"name": " Ginatilan", "lat": 9.5667, "lng": 123.3667, "status": "Active"},
 ]
 
 # ----------------------- Sidebar Controls -----------------------
@@ -218,6 +219,7 @@ m.get_root().html.add_child(folium.Element(colorbar_html))
 
 # ----------------------- Render Map -----------------------
 st_folium(m, width=-1, height=1000)
+
 
 
 
