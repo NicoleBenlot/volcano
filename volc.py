@@ -95,12 +95,12 @@ folium.TileLayer(
     attr='Esri',
     name='Satellite View',
     opacity=map_opacity,
-    overlay=True,
+    overlay=False,
     control=True
 ).add_to(m)
 
 # Add Standard Street View Layer
-folium.TileLayer('OpenStreetMap', name='Street View', overlay=False).add_to(m)
+#folium.TileLayer('OpenStreetMap', name='Street View', overlay=False).add_to(m)
 
 # Volcano markers
 for vdata in volcanoes:
