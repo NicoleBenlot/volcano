@@ -202,7 +202,7 @@ class FloatLegend(MacroElement):
 
 legend_damage_html = """
 <div style='position: fixed; bottom: 30px; left: 30px; width: 160px; height: 140px;
-     background-color: black; z-index:9999; font-size:14px;
+     background-color: white; z-index:9999; font-size:14px;
      border:2px solid grey; padding: 10px;'>
 <b>Damage Intensity</b><br>
 <span style='background:#ffff00;width:20px;height:10px;display:inline-block;'></span> Low<br>
