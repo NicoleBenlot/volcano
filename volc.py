@@ -46,6 +46,21 @@ volcanoes = [
     {"name": "Mount Fuji", "lat": 35.3606, "lng": 138.7274, "status": "Active"},
     {"name": " Malabuyoc", "lat": 9.6500, "lng": 123.3167, "status": "Active"},
     {"name": " Ginatilan", "lat": 9.5667, "lng": 123.3667, "status": "Active"},
+    {"name": "Mauna Loa", "lat": 19.4756, "lng": -155.6081, "status": "Active"},
+  {"name": "Kilauea", "lat": 19.4210, "lng": -155.2870, "status": "Active"},
+  {"name": "Mount St. Helens", "lat": 46.1912, "lng": -122.1944, "status": "Active"},
+  {"name": "Mount Rainier", "lat": 46.8523, "lng": -121.7603, "status": "Active"},
+  {"name": "Popocatepetl", "lat": 19.0230, "lng": -98.6220, "status": "Active"},
+  {"name": "Cotopaxi", "lat": -0.6800, "lng": -78.4370, "status": "Active"},
+  {"name": "Mount Etna", "lat": 37.7510, "lng": 14.9934, "status": "Active"},
+  {"name": "Vesuvius", "lat": 40.8214, "lng": 14.4265, "status": "Active"},
+  {"name": "Krakatoa", "lat": -6.1020, "lng": 105.4230, "status": "Active"},
+  {"name": "Mount Fuji", "lat": 35.3606, "lng": 138.7274, "status": "Active"},
+  {"name": "Merapi", "lat": -7.5407, "lng": 110.4462, "status": "Active"},
+  {"name": "Mayon", "lat": 13.2570, "lng": 123.6850, "status": "Active"},
+  {"name": "Pinatubo", "lat": 15.1429, "lng": 120.3496, "status": "Active"},
+  {"name": "Eyjafjallajokull", "lat": 63.6330, "lng": -19.6200, "status": "Active"},
+  {"name": "Stromboli", "lat": 38.7890, "lng": 15.2130, "status": "Active"}
 ]
 
 # ----------------------- Sidebar Controls -----------------------
@@ -219,6 +234,7 @@ m.get_root().html.add_child(folium.Element(colorbar_html))
 
 # ----------------------- Render Map -----------------------
 st_folium(m, width=-1, height=1000)
+
 
 
 
