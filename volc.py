@@ -87,7 +87,7 @@ sim = VolcanoSimulation(
 
 # ----------------------- Map Setup -----------------------
 # Initialize map without default tiles so we can control layers
-m = folium.TileLayer('OpenStreetMap', name='Street View', overlay=False)
+m = folium.Map(location=[v["lat"], v["lng"]], zoom_start=9, control_scale=True, tiles=None)
 
 # Add Satellite Layer (Esri)
 folium.TileLayer(
@@ -100,8 +100,8 @@ folium.TileLayer(
 ).add_to(m)
 
 # Add Standard Street View Layer
+#folium.TileLayer('OpenStreetMap', name='Street View', overlay=False).add_to(m)
 
-folium.Map(location=[v["lat"], v["lng"]], zoom_start=9, control_scale=True, tiles=None).add_to(m)
 # Volcano markers
 for vdata in volcanoes:
     status = vdata["status"]
