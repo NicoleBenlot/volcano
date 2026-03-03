@@ -94,7 +94,7 @@ folium.TileLayer(
     tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     attr='Esri',
     name='Satellite View',
-    opacity=map_opacity,
+    #opacity=map_opacity,
     overlay=False,
     control=True
 ).add_to(m)
@@ -218,5 +218,6 @@ m.get_root().html.add_child(folium.Element(colorbar_html))
 
 # ----------------------- Render Map -----------------------
 st_folium(m, width=-1, height=1000)
+
 
 
