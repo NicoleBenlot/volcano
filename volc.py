@@ -65,7 +65,7 @@ ash_scale = st.sidebar.slider("Ash Scale", 0.1, 2.0, 1.0)
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🗺️ Map Appearance")
-map_opacity = st.sidebar.slider("Background Sat Opacity", 0.0, 1.0, 1.0)
+#map_opacity = st.sidebar.slider("Background Sat Opacity", 0.0, 1.0, 1.0)
 show_ash = st.sidebar.checkbox("Show Ash Plume", value=True)
 show_damage = st.sidebar.checkbox("Show Damage Map", value=True)
 show_rings = st.sidebar.checkbox("Show Impact Rings", value=True)
@@ -218,4 +218,5 @@ m.get_root().html.add_child(folium.Element(colorbar_html))
 
 # ----------------------- Render Map -----------------------
 st_folium(m, width=-1, height=1000)
+
 
