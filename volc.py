@@ -263,7 +263,10 @@ with st.sidebar:
 
 # ----------------------- Simulation -----------------------
 radius    = max_radius_km / 2 if max_radius_km > 0 else 0.1
-extent_km = max(20, int(max_radius_km * 1.8))
+# Simulation extent — large enough for ash to extend at high wind speeds
+# wind_factor tops out at ~3 for 200 km/h, so multiply extent accordingly
+wind_factor_extent = math.log1p(max(0.0, wind_speed) / 10.0)
+extent_km = max(30, int(max_radius_km * max(1.8, 1.8 + wind_factor_extent)))
 
 # Cached — only rebuilds when volcano or extent changes
 sim = get_simulation(v["lng"], v["lat"], grid_res, extent_km)
@@ -329,25 +332,11 @@ if show_damage and dmg_rgba is not None:
         opacity=0.75, name="Damage Intensity"
     ).add_to(m)
 
-# Ash overlay — bounds extended in the downwind direction so plume isn't clipped
+# Ash overlay — use a larger extent so plume has room without shifting center
 if show_ash and ash_rgba is not None:
-    # Compute how far the plume could extend downwind
-    wind_factor = math.log1p(max(0.0, wind_speed) / 10.0)
-    plume_reach_km = max_radius_km * (1.0 + wind_factor)
-    down_deg = (wind_dir + 180.0) % 360.0
-    down_rad = math.radians(down_deg)
-    dx_km = math.sin(down_rad) * plume_reach_km
-    dy_km = math.cos(down_rad) * plume_reach_km
-    dx_deg = dx_km / sim._lon_km_per_deg
-    dy_deg = dy_km / sim._lat_km_per_deg
-    # Expand bounds toward downwind side
-    ash_lat_min = min(sim.lat_min, sim.lat_min + dy_deg)
-    ash_lat_max = max(sim.lat_max, sim.lat_max + dy_deg)
-    ash_lon_min = min(sim.lon_min, sim.lon_min + dx_deg)
-    ash_lon_max = max(sim.lon_max, sim.lon_max + dx_deg)
     folium.raster_layers.ImageOverlay(
         image=array_to_base64_png(ash_rgba),
-        bounds=[[ash_lat_min, ash_lon_min], [ash_lat_max, ash_lon_max]],
+        bounds=[[sim.lat_min, sim.lon_min], [sim.lat_max, sim.lon_max]],
         opacity=ash_opacity, name="Ash Plume"
     ).add_to(m)
 
