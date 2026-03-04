@@ -66,8 +66,6 @@ volcanoes = [
     {"name": "Camiguin de Babuyanes", "lat": 19.300,  "lng": 121.900,  "status": "Active"},
     {"name": "Mount Everest",         "lat": 27.9881, "lng": 86.9250,  "status": "Inactive"},
     {"name": "Mount Fuji",            "lat": 35.3606, "lng": 138.7274, "status": "Active"},
-    {"name": "Malabuyoc",             "lat": 9.6500,  "lng": 123.3167, "status": "Active"},
-    {"name": "Ginatilan",             "lat": 9.5667,  "lng": 123.3667, "status": "Active"},
 ]
 
 ALERT_LABELS  = ["🟢 Normal", "🔵 Abnormal", "🟡 Increasing Unrest", "🟠 Minor Eruption", "🔴 Hazardous Eruption"]
