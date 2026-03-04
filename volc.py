@@ -103,6 +103,10 @@ TILES = {
         "url":  "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
         "attr": "© OpenStreetMap contributors",
     },
+    "🛰 Satellite (Esri World Imagery)": {
+        "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        "attr": "Tiles © Esri",
+    }
 }
 
 DEFAULT_TILE = "🛰 Satellite (Esri Clarity)"
@@ -280,7 +284,7 @@ tile_attr = tile_cfg["attr"]
 
 m = folium.Map(
     location=[v["lat"], v["lng"]],
-    zoom_start=zoom_level,          # auto-zooms based on alert level
+    zoom_start=zoom_level,          
     control_scale=True,
     tiles=tile_url,
     attr=tile_attr,
