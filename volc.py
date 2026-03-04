@@ -6,6 +6,7 @@ from branca.element import MacroElement
 from jinja2 import Template
 import base64
 import math
+import numpy as np
 from io import BytesIO
 from PIL import Image
 
@@ -26,18 +27,40 @@ def get_simulation(volcano_x, volcano_y, grid_res, extent_km):
         extent_km=extent_km,
     )
 
-# Cached overlay computations — only recomputes when inputs actually change
+# Cache only the raw spatial fields — alpha is applied at render time so
+# magnitude/alert changes are always visible without cache interference
 @st.cache_data(show_spinner=False)
-def cached_damage_overlay(volcano_x, volcano_y, grid_res, extent_km,
-                           radius, scale, eq_mag_num, max_radius, cmap_name):
+def cached_damage_field(volcano_x, volcano_y, grid_res, extent_km, radius, max_radius):
+    """Returns normalised damage field [0,1] — shape only, no intensity baked in."""
     sim = get_simulation(volcano_x, volcano_y, grid_res, extent_km)
-    return sim.compute_damage_overlay(radius, scale, eq_mag_num, max_radius, cmap_name)
+    if radius <= 0 or max_radius <= 0:
+        return np.zeros((grid_res, grid_res))
+    inv_sq = 1.0 / (1.0 + (sim.dist_grid / max(radius, 1e-6)) ** 2)
+    falloff_km = max(1.0, max_radius / 5.0)
+    damage = inv_sq * np.exp(-sim.dist_grid / falloff_km)
+    damage[sim.dist_grid > max_radius] = 0.0
+    peak = damage.max()
+    if peak > 1e-12:
+        damage /= peak
+    return damage
 
 @st.cache_data(show_spinner=False)
-def cached_ash_overlay(volcano_x, volcano_y, grid_res, extent_km,
-                        radius, wind_dir, wind_speed, max_radius, cmap_name):
+def cached_ash_field(volcano_x, volcano_y, grid_res, extent_km,
+                      radius, wind_dir, wind_speed, max_radius):
+    """Returns normalised ash field [0,1] — shape only, no intensity baked in."""
     sim = get_simulation(volcano_x, volcano_y, grid_res, extent_km)
-    return sim.compute_ash_overlay(radius, wind_dir, wind_speed, max_radius, cmap_name)
+    _, field = sim.compute_ash_overlay(radius, wind_dir, wind_speed, max_radius, "white_gray_black")
+    return field
+
+def field_to_rgba(field, cmap_name, alpha_scale):
+    """Convert a normalised field to RGBA uint8 with alpha_scale applied.
+    Runs uncached every render so slider changes are immediately visible."""
+    cmap = VolcanoSimulation.get_colormap(cmap_name)
+    normed = field  # already [0,1]
+    rgba = (cmap(normed) * 255).astype(np.uint8)
+    base_alpha = np.clip(normed * 1.5, 0.0, 1.0)
+    rgba[..., 3] = (base_alpha * float(np.clip(alpha_scale, 0.0, 1.0)) * 255).astype(np.uint8)
+    return rgba
 
 # ----------------------- Volcano Data -----------------------
 volcanoes = [
@@ -72,9 +95,7 @@ volcanoes = [
 
 ALERT_LABELS  = ["🟢 Normal", "🔵 Abnormal", "🟡 Increasing Unrest", "🟠 Minor Eruption", "🔴 Hazardous Eruption"]
 ALERT_RADIUS  = {0: 0, 1: 5, 2: 12, 3: 25, 4: 50}
-# Zoom level per alert level — higher alert = bigger radius = zoom out
 ALERT_ZOOM    = {0: 11, 1: 11, 2: 10, 3: 9, 4: 8}
-# Grid resolution scales with extent so quality stays consistent
 ALERT_GRIDRES = {0: 120, 1: 150, 2: 180, 3: 210, 4: 240}
 # Scientifically grounded default magnitude per alert level (PHIVOLCS/USGS data):
 # Level 0 → background micro-seismicity M0.3–1.5       → default M1.0
@@ -93,13 +114,15 @@ ASH_CMAPS = {
     "🟣 Plasma":             "plasma",
 }
 
-# Best free, no-API-key tile sources:
-# - Esri Clarity: newer Esri endpoint, fewer black ocean tiles than World_Imagery
-# - Esri World Imagery: original, wider zoom support as fallback
-# - Google (via public XYZ): best global coverage, no key needed at low traffic
-# - CARTO Dark Matter: clean dark street map, no key needed
-# - CARTO Positron: clean light street map, no key needed
 TILES = {
+    "🌍 Hybrid (Google)":             {
+        "url":  "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
+        "attr": "Google Hybrid",
+    },
+    "🛰 Satellite (Google)":          {
+        "url":  "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
+        "attr": "Google Satellite",
+    },
     "🛰 Satellite (Esri Clarity)":   {
         "url":  "https://clarity.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
         "attr": "Esri World Imagery Clarity",
@@ -108,9 +131,13 @@ TILES = {
         "url":  "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
         "attr": "© OpenStreetMap contributors",
     },
+    "🛰 Satellite (Esri World Imagery)": {
+        "url":  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        "attr": "Tiles © Esri",
+    },
 }
 
-DEFAULT_TILE = "🛰 Satellite (Esri Clarity)"
+DEFAULT_TILE = "🛰 Satellite (Esri World Imagery)"
 
 # ----------------------- Session state -----------------------
 if "active_tile" not in st.session_state:
@@ -153,7 +180,6 @@ iframe {
     border-top: 1px solid rgba(128,128,128,0.15);
     padding-top: 0.55rem;
 }
-/* Header bar */
 .map-header {
     display: flex;
     align-items: center;
@@ -164,7 +190,6 @@ iframe {
 }
 .map-title { font-size: 1.05rem; font-weight: 800; display: flex; align-items: center; gap: 8px; }
 .map-meta  { color: #777; font-size: 0.78rem; display: flex; gap: 14px; }
-/* Stats bar */
 .stats-bar {
     display: flex;
     gap: 0;
@@ -212,7 +237,6 @@ with st.sidebar:
     st.caption(f"Hazard radius: **{max_radius_km} km**" if max_radius_km > 0 else "No active hazard zone")
 
     st.markdown('<div class="sidebar-section">🌍 Seismic Activity</div>', unsafe_allow_html=True)
-    # Reset magnitude default when alert level changes
     eq_default = ALERT_EQ_DEFAULT[alert_level]
     if st.session_state.get("last_alert_level") != alert_level:
         st.session_state["eq_magnitude"] = eq_default
@@ -230,7 +254,6 @@ with st.sidebar:
     with c1:
         wind_speed = st.number_input("Speed (km/h)", min_value=0, max_value=200, value=10, step=5)
     with c2:
-        # FIX: max 359 — 360° == 0° (same direction)
         wind_dir = st.number_input("Direction (°)", min_value=0, max_value=359, value=90, step=5)
     ash_scale = st.slider("Ash Spread Scale", 0.1, 2.0, 1.0, 0.1)
 
@@ -251,9 +274,8 @@ with st.sidebar:
 
     st.markdown('<div class="sidebar-section">🛰 Base Map</div>', unsafe_allow_html=True)
     tile_keys = list(TILES.keys())
-    # Recover gracefully if stored key no longer exists
-    stored = st.session_state.active_tile
-    tile_idx = tile_keys.index(stored) if stored in tile_keys else 0
+    stored    = st.session_state.active_tile
+    tile_idx  = tile_keys.index(stored) if stored in tile_keys else 0
     chosen_tile = st.radio(
         "Base map", tile_keys,
         index=tile_idx,
@@ -262,25 +284,42 @@ with st.sidebar:
     st.session_state.active_tile = chosen_tile
 
 # ----------------------- Simulation -----------------------
-radius    = max_radius_km / 2 if max_radius_km > 0 else 0.1
-# Simulation extent — large enough for ash to extend at high wind speeds
-# wind_factor tops out at ~3 for 200 km/h, so multiply extent accordingly
+radius = max_radius_km / 2 if max_radius_km > 0 else 0.1
+# Extent grows with wind speed so ash plume has room without clipping
 wind_factor_extent = math.log1p(max(0.0, wind_speed) / 10.0)
 extent_km = max(30, int(max_radius_km * max(1.8, 1.8 + wind_factor_extent)))
 
-# Cached — only rebuilds when volcano or extent changes
 sim = get_simulation(v["lng"], v["lat"], grid_res, extent_km)
 
-# Overlays — cached per unique input combination
-dmg_rgba, dmg_field = cached_damage_overlay(
-    v["lng"], v["lat"], grid_res, extent_km,
-    radius, alert_level, eq_magnitude, max_radius_km, "violet_yellow"
-) if show_damage else (None, None)
+# Damage — cache spatial shape only, apply alpha fresh each render
+# This is what makes the magnitude slider visually affect the map
+scale_factor = float(alert_level / 4.0)
+quake_factor = float(eq_magnitude / 9.0)
+dmg_alpha    = scale_factor * quake_factor
 
-ash_rgba, ash_field = cached_ash_overlay(
-    v["lng"], v["lat"], grid_res, extent_km,
-    radius * ash_scale, wind_dir, wind_speed, max_radius_km, ash_cmap
-) if show_ash else (None, None)
+if show_damage and max_radius_km > 0:
+    dmg_field = cached_damage_field(
+        v["lng"], v["lat"], grid_res, extent_km,
+        radius, max_radius_km
+    )
+    dmg_rgba = field_to_rgba(dmg_field, "violet_yellow", dmg_alpha)
+else:
+    dmg_field = None
+    dmg_rgba  = None
+
+# Ash — cache spatial shape only, apply alpha fresh each render
+if show_ash and max_radius_km > 0:
+    ash_field = cached_ash_field(
+        v["lng"], v["lat"], grid_res, extent_km,
+        radius * ash_scale, wind_dir, wind_speed, max_radius_km
+    )
+    ash_intensity = float(np.clip(
+        (radius * ash_scale) / max(max_radius_km, 1e-6) * 1.4 + 0.1, 0.0, 1.0
+    ))
+    ash_rgba = field_to_rgba(ash_field, ash_cmap, ash_intensity)
+else:
+    ash_field = None
+    ash_rgba  = None
 
 # ----------------------- Stats computation -----------------------
 damage_area_km2 = 0.0
@@ -290,7 +329,7 @@ if dmg_field is not None and max_radius_km > 0:
 if ash_field is not None and max_radius_km > 0:
     ash_area_km2 = sim.compute_affected_area_km2(ash_field, threshold=0.10)
 
-total_hazard_area = math.pi * max_radius_km ** 2  # simple circle as reference
+total_hazard_area = math.pi * max_radius_km ** 2
 
 # ----------------------- Map -----------------------
 tile_cfg  = TILES[st.session_state.active_tile]
@@ -299,7 +338,7 @@ tile_attr = tile_cfg["attr"]
 
 m = folium.Map(
     location=[v["lat"], v["lng"]],
-    zoom_start=zoom_level,          # auto-zooms based on alert level
+    zoom_start=zoom_level,
     control_scale=True,
     tiles=tile_url,
     attr=tile_attr,
@@ -332,7 +371,7 @@ if show_damage and dmg_rgba is not None:
         opacity=0.75, name="Damage Intensity"
     ).add_to(m)
 
-# Ash overlay — use a larger extent so plume has room without shifting center
+# Ash overlay
 if show_ash and ash_rgba is not None:
     folium.raster_layers.ImageOverlay(
         image=array_to_base64_png(ash_rgba),
@@ -402,7 +441,7 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# ----------------------- Map -----------------------
+# ----------------------- Map render -----------------------
 st_folium(m, use_container_width=True, height=820, returned_objects=[])
 
 # ----------------------- Stats bar -----------------------
