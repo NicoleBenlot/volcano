@@ -4,7 +4,6 @@ from streamlit_folium import st_folium
 from volcano_models import VolcanoSimulation
 from branca.element import MacroElement
 from jinja2 import Template
-import matplotlib.pyplot as plt
 import base64
 from io import BytesIO
 from PIL import Image
@@ -14,23 +13,7 @@ def array_to_base64_png(array):
     img = Image.fromarray(array)
     buf = BytesIO()
     img.save(buf, format="PNG")
-    b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
-    return f"data:image/png;base64,{b64}"
-
-def make_colorbar(cmap_name="violet_yellow", vmin=0, vmax=1, label=""):
-    fig, ax = plt.subplots(figsize=(0.35, 2.8))
-    norm = plt.Normalize(vmin=vmin, vmax=vmax)
-    cmap = VolcanoSimulation.get_colormap(cmap_name)
-    fig.subplots_adjust(right=0.5)
-    cb = plt.colorbar(plt.cm.ScalarMappable(norm=norm, cmap=cmap), cax=ax)
-    cb.set_label(label, fontsize=8)
-    cb.ax.tick_params(labelsize=7)
-    buf = BytesIO()
-    plt.savefig(buf, format="png", bbox_inches="tight", transparent=True)
-    buf.seek(0)
-    b64 = base64.b64encode(buf.read()).decode("utf-8")
-    plt.close(fig)
-    return f"data:image/png;base64,{b64}"
+    return f"data:image/png;base64,{base64.b64encode(buf.getvalue()).decode('utf-8')}"
 
 # ----------------------- Volcano Data -----------------------
 volcanoes = [
@@ -67,43 +50,68 @@ ALERT_LABELS = ["🟢 Normal", "🔵 Abnormal", "🟡 Increasing Unrest", "🟠 
 ALERT_RADIUS = {0: 0, 1: 5, 2: 12, 3: 25, 4: 50}
 
 # ----------------------- Page Config -----------------------
-st.set_page_config(layout="wide", page_title="🌋 Volcano Simulation", page_icon="🌋")
+st.set_page_config(layout="wide", page_title="🌋 VolcanoSim", page_icon="🌋")
 
 st.markdown("""
 <style>
-/* Sidebar header branding */
-[data-testid="stSidebar"] > div:first-child {
-    padding-top: 1rem;
+/* Remove Streamlit default padding so map fills the page */
+.block-container {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
 }
+/* Make the folium iframe fill the remaining viewport height */
+iframe {
+    height: calc(100vh - 52px) !important;
+    min-height: 500px;
+    display: block;
+}
+/* Sidebar styling */
+[data-testid="stSidebar"] > div:first-child { padding-top: 1rem; }
 .sidebar-brand {
-    font-size: 1.4rem;
+    font-size: 1.35rem;
     font-weight: 800;
     letter-spacing: 0.05em;
     color: #ff4500;
-    margin-bottom: 0.2rem;
+    margin-bottom: 0.1rem;
 }
 .sidebar-sub {
-    font-size: 0.78rem;
+    font-size: 0.75rem;
     color: #888;
-    margin-bottom: 1.2rem;
+    margin-bottom: 1rem;
 }
-/* Alert badge */
-.alert-badge {
-    display: inline-block;
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-weight: 700;
-    font-size: 0.85rem;
-    margin-top: 4px;
-}
-/* Section dividers */
 .sidebar-section {
-    font-size: 0.72rem;
+    font-size: 0.70rem;
     font-weight: 700;
     letter-spacing: 0.12em;
     color: #aaa;
     text-transform: uppercase;
-    margin: 1.1rem 0 0.4rem 0;
+    margin: 1rem 0 0.3rem 0;
+    border-top: 1px solid rgba(128,128,128,0.15);
+    padding-top: 0.55rem;
+}
+/* Thin header bar above the map */
+.map-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 14px;
+    background: rgba(0,0,0,0.05);
+    border-bottom: 1px solid rgba(0,0,0,0.09);
+}
+.map-title {
+    font-size: 1.05rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.map-meta {
+    color: #777;
+    font-size: 0.78rem;
+    display: flex;
+    gap: 14px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -113,27 +121,25 @@ with st.sidebar:
     st.markdown('<div class="sidebar-brand">🌋 VolcanoSim</div>', unsafe_allow_html=True)
     st.markdown('<div class="sidebar-sub">Philippine Volcano Hazard Simulator</div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="sidebar-section">🗺 Volcano Selection</div>', unsafe_allow_html=True)
-    volcano_names = [v["name"].strip() for v in volcanoes]
+    st.markdown('<div class="sidebar-section">🗺 Volcano</div>', unsafe_allow_html=True)
+    volcano_names = [vd["name"].strip() for vd in volcanoes]
     selected_name = st.selectbox("Select Volcano", volcano_names, label_visibility="collapsed")
-
     v = next(vd for vd in volcanoes if vd["name"].strip() == selected_name)
-    status_color = {"Active": "🔴", "Potentially Active": "🟡", "Inactive": "⚪"}.get(v["status"], "⚫")
-    st.caption(f"{status_color} {v['status']}  •  {v['lat']:.3f}°N, {v['lng']:.3f}°E")
+    status_icon = {"Active": "🔴", "Potentially Active": "🟡", "Inactive": "⚪"}.get(v["status"], "⚫")
+    st.caption(f"{status_icon} {v['status']}  •  {v['lat']:.3f}°N, {v['lng']:.3f}°E")
 
     st.markdown('<div class="sidebar-section">⚠️ Alert Level</div>', unsafe_allow_html=True)
     alert_level = st.select_slider(
-        "Alert Level",
-        options=[0, 1, 2, 3, 4],
-        format_func=lambda x: ALERT_LABELS[x],
-        value=2,
+        "Alert Level", options=[0, 1, 2, 3, 4],
+        format_func=lambda x: ALERT_LABELS[x], value=2,
         label_visibility="collapsed"
     )
     max_radius_km = ALERT_RADIUS[alert_level]
-    if max_radius_km > 0:
-        st.caption(f"Hazard radius: **{max_radius_km} km**")
-    else:
-        st.caption("No active hazard zone")
+    st.caption(f"Hazard radius: **{max_radius_km} km**" if max_radius_km > 0 else "No active hazard zone")
+
+    st.markdown('<div class="sidebar-section">🌍 Seismic Activity</div>', unsafe_allow_html=True)
+    eq_magnitude = st.slider("Earthquake Magnitude (Richter)", 0.0, 9.0, 3.0, 0.5,
+                              format="M %.1f")
 
     st.markdown('<div class="sidebar-section">💨 Wind Conditions</div>', unsafe_allow_html=True)
     col1, col2 = st.columns(2)
@@ -143,20 +149,18 @@ with st.sidebar:
         wind_dir = st.number_input("Direction (°)", min_value=0, max_value=360, value=90, step=5)
     ash_scale = st.slider("Ash Spread Scale", 0.1, 2.0, 1.0, 0.1)
 
-    st.markdown('<div class="sidebar-section">🗂 Layer Visibility</div>', unsafe_allow_html=True)
-    show_ash    = st.toggle("Ash Plume", value=True)
-    show_damage = st.toggle("Damage Intensity", value=True)
+    st.markdown('<div class="sidebar-section">🗂 Layers</div>', unsafe_allow_html=True)
+    show_ash    = st.toggle("Ash Plume",           value=True)
+    show_damage = st.toggle("Damage Intensity",    value=True)
     show_rings  = st.toggle("Impact Rings (5 km)", value=True)
 
 # ----------------------- Simulation -----------------------
-radius = max_radius_km / 2 if max_radius_km > 0 else 0.1
+radius    = max_radius_km / 2 if max_radius_km > 0 else 0.1
 extent_km = max(20, int(max_radius_km * 1.8))
 
 sim = VolcanoSimulation(
-    volcano_x=v["lng"],
-    volcano_y=v["lat"],
-    grid_res=240,
-    extent_km=extent_km
+    volcano_x=v["lng"], volcano_y=v["lat"],
+    grid_res=240, extent_km=extent_km
 )
 
 # ----------------------- Map -----------------------
@@ -164,49 +168,39 @@ m = folium.Map(location=[v["lat"], v["lng"]], zoom_start=9, control_scale=True, 
 
 folium.TileLayer(
     tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    attr='Esri World Imagery',
-    name='Satellite',
-    overlay=False,
-    control=True
+    attr='Esri World Imagery', name='Satellite', overlay=False, control=True
 ).add_to(m)
-
 folium.TileLayer('OpenStreetMap', name='Street Map', overlay=False, control=True).add_to(m)
 
 # Volcano markers
 for vdata in volcanoes:
-    icon_color = {"Active": "red", "Potentially Active": "orange", "Inactive": "blue"}.get(vdata["status"], "gray")
+    icon_color  = {"Active": "red", "Potentially Active": "orange", "Inactive": "blue"}.get(vdata["status"], "gray")
     is_selected = vdata["name"].strip() == selected_name
     folium.Marker(
         location=[vdata["lat"], vdata["lng"]],
-        popup=folium.Popup(f"<b>{vdata['name']}</b><br>{vdata['status']}", max_width=200),
+        popup=folium.Popup(f"<b>{vdata['name'].strip()}</b><br>{vdata['status']}", max_width=200),
         tooltip=vdata["name"].strip(),
         icon=folium.Icon(color=icon_color, icon="fire" if is_selected else "info-sign", prefix="glyphicon")
     ).add_to(m)
 
-# Hazard zone boundary
+# Hazard boundary circle
 if show_damage and max_radius_km > 0:
     folium.Circle(
-        location=[v["lat"], v["lng"]],
-        radius=max_radius_km * 1000,
-        color="#ff6600",
-        weight=2,
-        fill=True,
-        fill_color="#ff6600",
-        fill_opacity=0.08,
-        tooltip=f"Hazard boundary: {max_radius_km} km"
+        location=[v["lat"], v["lng"]], radius=max_radius_km * 1000,
+        color="#ff6600", weight=2, fill=True, fill_color="#ff6600",
+        fill_opacity=0.07, tooltip=f"Hazard boundary: {max_radius_km} km"
     ).add_to(m)
 
-# Damage overlay
+# Damage overlay — now uses the user-controlled eq_magnitude
 if show_damage:
     dmg_img = sim.compute_damage_overlay(
-        radius, scale=alert_level, eq_mag_num=3.0,
+        radius, scale=alert_level, eq_mag_num=eq_magnitude,
         max_radius=max_radius_km, cmap_name="inferno"
     )
     folium.raster_layers.ImageOverlay(
         image=array_to_base64_png(dmg_img),
         bounds=[[sim.lat_min, sim.lon_min], [sim.lat_max, sim.lon_max]],
-        opacity=0.75,
-        name="Damage Intensity"
+        opacity=0.75, name="Damage Intensity"
     ).add_to(m)
 
 # Ash overlay
@@ -218,27 +212,21 @@ if show_ash:
     folium.raster_layers.ImageOverlay(
         image=array_to_base64_png(ash_img),
         bounds=[[sim.lat_min, sim.lon_min], [sim.lat_max, sim.lon_max]],
-        opacity=0.70,
-        name="Ash Plume"
+        opacity=0.70, name="Ash Plume"
     ).add_to(m)
 
 # Impact rings
 if show_rings and max_radius_km > 0:
     for r_m in range(5000, max_radius_km * 1000 + 1, 5000):
         folium.Circle(
-            location=[v["lat"], v["lng"]],
-            radius=r_m,
-            color="#cc44ff",
-            fill=False,
-            dash_array="6,4",
-            weight=1.2,
-            opacity=0.55,
-            tooltip=f"{r_m // 1000} km radius"
+            location=[v["lat"], v["lng"]], radius=r_m,
+            color="#cc44ff", fill=False, dash_array="6,4",
+            weight=1.2, opacity=0.55, tooltip=f"{r_m // 1000} km radius"
         ).add_to(m)
 
 folium.LayerControl(collapsed=False).add_to(m)
 
-# ----------------------- Map Legend (combined, single block) -----------------------
+# ----------------------- Map Legend -----------------------
 class FloatLegend(MacroElement):
     def __init__(self, html):
         super().__init__()
@@ -248,59 +236,46 @@ class FloatLegend(MacroElement):
         {{% endmacro %}}
         """)
 
-legend_html = """
+m.add_child(FloatLegend("""
 <div style='
-    position: fixed; bottom: 28px; left: 28px;
-    background: rgba(15,15,20,0.88);
-    border: 1px solid rgba(255,255,255,0.15);
-    border-radius: 10px;
-    padding: 12px 16px;
-    z-index: 9999;
-    font-family: monospace;
-    font-size: 12px;
-    color: #eee;
-    min-width: 170px;
-    backdrop-filter: blur(4px);
+    position:fixed;bottom:28px;left:28px;
+    background:rgba(12,12,18,0.90);
+    border:1px solid rgba(255,255,255,0.12);
+    border-radius:10px;
+    padding:12px 16px;
+    z-index:9999;
+    font-family:monospace;
+    font-size:12px;
+    color:#eee;
+    min-width:175px;
+    backdrop-filter:blur(6px);
 '>
-  <div style='font-weight:700; font-size:13px; margin-bottom:8px; color:#ff6a00;'>🌋 Legend</div>
-  <div style='margin-bottom:6px; font-size:11px; color:#aaa; font-weight:600;'>DAMAGE INTENSITY</div>
-  <div style='display:flex;align-items:center;gap:8px;margin-bottom:3px;'>
-    <span style='background:#ffff00;width:16px;height:10px;display:inline-block;border-radius:2px;'></span> Low
-  </div>
-  <div style='display:flex;align-items:center;gap:8px;margin-bottom:3px;'>
-    <span style='background:#ffa500;width:16px;height:10px;display:inline-block;border-radius:2px;'></span> Moderate
-  </div>
-  <div style='display:flex;align-items:center;gap:8px;margin-bottom:3px;'>
-    <span style='background:#ff0000;width:16px;height:10px;display:inline-block;border-radius:2px;'></span> High
-  </div>
-  <div style='display:flex;align-items:center;gap:8px;margin-bottom:10px;'>
-    <span style='background:#800080;width:16px;height:10px;display:inline-block;border-radius:2px;'></span> Severe
-  </div>
-  <div style='margin-bottom:6px; font-size:11px; color:#aaa; font-weight:600;'>VOLCANO STATUS</div>
-  <div style='display:flex;align-items:center;gap:8px;margin-bottom:3px;'>
-    <span style='color:#e74c3c;font-size:14px;'>📍</span> Active
-  </div>
-  <div style='display:flex;align-items:center;gap:8px;margin-bottom:3px;'>
-    <span style='color:#f39c12;font-size:14px;'>📍</span> Potentially Active
-  </div>
-  <div style='display:flex;align-items:center;gap:8px;'>
-    <span style='color:#3498db;font-size:14px;'>📍</span> Inactive
-  </div>
+  <div style='font-weight:700;font-size:13px;margin-bottom:9px;color:#ff6a00;'>🌋 Legend</div>
+  <div style='font-size:10px;color:#aaa;font-weight:700;letter-spacing:.08em;margin-bottom:5px;'>DAMAGE INTENSITY</div>
+  <div style='display:flex;align-items:center;gap:7px;margin-bottom:3px;'><span style='background:#ffff00;width:15px;height:9px;display:inline-block;border-radius:2px;'></span>Low</div>
+  <div style='display:flex;align-items:center;gap:7px;margin-bottom:3px;'><span style='background:#ffa500;width:15px;height:9px;display:inline-block;border-radius:2px;'></span>Moderate</div>
+  <div style='display:flex;align-items:center;gap:7px;margin-bottom:3px;'><span style='background:#ff0000;width:15px;height:9px;display:inline-block;border-radius:2px;'></span>High</div>
+  <div style='display:flex;align-items:center;gap:7px;margin-bottom:10px;'><span style='background:#800080;width:15px;height:9px;display:inline-block;border-radius:2px;'></span>Severe</div>
+  <div style='font-size:10px;color:#aaa;font-weight:700;letter-spacing:.08em;margin-bottom:5px;'>VOLCANO STATUS</div>
+  <div style='display:flex;align-items:center;gap:7px;margin-bottom:3px;'><span style='color:#e74c3c;font-size:14px;'>●</span>Active</div>
+  <div style='display:flex;align-items:center;gap:7px;margin-bottom:3px;'><span style='color:#f39c12;font-size:14px;'>●</span>Potentially Active</div>
+  <div style='display:flex;align-items:center;gap:7px;'><span style='color:#5dade2;font-size:14px;'>●</span>Inactive</div>
 </div>
-"""
-m.add_child(FloatLegend(legend_html))
+"""))
 
-# ----------------------- Render -----------------------
+# ----------------------- Header Bar + Map -----------------------
 st.markdown(f"""
-<div style='display:flex; align-items:center; justify-content:space-between; margin-bottom:0.5rem;'>
-  <div>
-    <span style='font-size:1.5rem; font-weight:800;'>🌋 {selected_name}</span>
-    <span style='margin-left:12px; font-size:0.9rem; color:#888;'>{ALERT_LABELS[alert_level]}</span>
+<div class="map-header">
+  <div class="map-title">
+    🌋 {selected_name}
+    <span style='font-size:0.82rem;font-weight:400;color:#666;'>{ALERT_LABELS[alert_level]}</span>
   </div>
-  <div style='font-size:0.8rem; color:#888;'>
-    Wind: {wind_speed} km/h @ {wind_dir}° &nbsp;|&nbsp; Radius: {max_radius_km} km
+  <div class="map-meta">
+    <span>💨 {wind_speed} km/h @ {wind_dir}°</span>
+    <span>📏 {max_radius_km} km</span>
+    <span>📳 M{eq_magnitude:.1f}</span>
   </div>
 </div>
 """, unsafe_allow_html=True)
 
-st_folium(m, width="100%", height=820, returned_objects=[])
+st_folium(m, use_container_width=True, height=900, returned_objects=[])
