@@ -1,0 +1,29 @@
+name: Deploy Streamlit App
+
+on:
+  push:
+    branches:
+      - main  # or master, the branch you want to deploy from
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.8
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+
+    - name: Deploy to Streamlit
+      run: |
+        pip install streamlit
+        streamlit run app.py --server.port 8501 --server.headless true
+      env:
+        STREAMLIT_TOKEN: ${{ secrets.STREAMLIT_TOKEN }}
