@@ -41,10 +41,10 @@ def cached_ash_overlay(volcano_x, volcano_y, grid_res, extent_km,
 
 # ----------------------- Volcano Data -----------------------
 volcanoes = [
+    {"name": "Kanlaon Volcano",       "lat": 10.412,  "lng": 123.132,  "status": "Active"},
     {"name": "Taal Volcano",          "lat": 14.0097, "lng": 120.9983, "status": "Active"},
     {"name": "Mayon Volcano",         "lat": 13.257,  "lng": 123.685,  "status": "Active"},
     {"name": "Pinatubo Volcano",      "lat": 15.142,  "lng": 120.349,  "status": "Active"},
-    {"name": "Kanlaon Volcano",       "lat": 10.412,  "lng": 123.132,  "status": "Active"},
     {"name": "Bulusan Volcano",       "lat": 12.770,  "lng": 124.050,  "status": "Active"},
     {"name": "Mount Apo",             "lat": 6.987,   "lng": 125.255,  "status": "Potentially Active"},
     {"name": "Mount Pulag",           "lat": 16.611,  "lng": 120.889,  "status": "Inactive"},
@@ -110,7 +110,7 @@ TILES = {
     }
 }
 
-DEFAULT_TILE = "🛰 Satellite (Esri Clarity)"
+DEFAULT_TILE = "🛰 Satellite (Esri World Imagery)"
 
 # ----------------------- Session state -----------------------
 if "active_tile" not in st.session_state:
