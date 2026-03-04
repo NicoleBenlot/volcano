@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 import base64
 from io import BytesIO
 from PIL import Image
-import io
 
+# ----------------------- Helpers -----------------------
 def array_to_base64_png(array):
     img = Image.fromarray(array)
     buf = BytesIO()
@@ -17,121 +17,139 @@ def array_to_base64_png(array):
     b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
     return f"data:image/png;base64,{b64}"
 
+def make_colorbar(cmap_name="violet_yellow", vmin=0, vmax=1, label=""):
+    fig, ax = plt.subplots(figsize=(0.35, 2.8))
+    norm = plt.Normalize(vmin=vmin, vmax=vmax)
+    cmap = VolcanoSimulation.get_colormap(cmap_name)
+    fig.subplots_adjust(right=0.5)
+    cb = plt.colorbar(plt.cm.ScalarMappable(norm=norm, cmap=cmap), cax=ax)
+    cb.set_label(label, fontsize=8)
+    cb.ax.tick_params(labelsize=7)
+    buf = BytesIO()
+    plt.savefig(buf, format="png", bbox_inches="tight", transparent=True)
+    buf.seek(0)
+    b64 = base64.b64encode(buf.read()).decode("utf-8")
+    plt.close(fig)
+    return f"data:image/png;base64,{b64}"
+
 # ----------------------- Volcano Data -----------------------
 volcanoes = [
-    {"name": "Taal Volcano", "lat": 14.0097, "lng": 120.9983, "status": "Active"},
-    {"name": "Mayon Volcano", "lat": 13.257, "lng": 123.685, "status": "Active"},
-    {"name": "Pinatubo Volcano", "lat": 15.142, "lng": 120.349, "status": "Active"},
-    {"name": "Kanlaon Volcano", "lat": 10.412, "lng": 123.132, "status": "Active"},
-    {"name": "Bulusan Volcano", "lat": 12.770, "lng": 124.050, "status": "Active"},
-    {"name": "Mount Apo", "lat": 6.987, "lng": 125.255, "status": "Potentially Active"},
-    {"name": "Mount Pulag", "lat": 16.611, "lng": 120.889, "status": "Inactive"},
-    {"name": "Mount Arayat", "lat": 15.200, "lng": 120.742, "status": "Potentially Active"},
-    {"name": "Leonard Kniaseff", "lat": 7.100, "lng": 125.800, "status": "Potentially Active"},
-    {"name": "Cabalian", "lat": 10.200, "lng": 125.200, "status": "Potentially Active"},
-    {"name": "Isarog", "lat": 13.600, "lng": 123.400, "status": "Potentially Active"},
-    {"name": "Babuyan Claro", "lat": 19.500, "lng": 121.900, "status": "Active"},
-    {"name": "Biliran", "lat": 11.520, "lng": 124.530, "status": "Active"},
-    {"name": "Cagua", "lat": 18.220, "lng": 122.120, "status": "Active"},
-    {"name": "Didicas", "lat": 19.080, "lng": 122.200, "status": "Active"},
-    {"name": "Iraya", "lat": 20.366, "lng": 122.000, "status": "Active"},
-    {"name": "Matutum", "lat": 6.350, "lng": 125.070, "status": "Active"},
-    {"name": "Makaturing", "lat": 7.650, "lng": 124.300, "status": "Active"},
-    {"name": "Musuan", "lat": 7.600, "lng": 125.070, "status": "Active"},
-    {"name": "Parker", "lat": 6.120, "lng": 124.890, "status": "Active"},
-    {"name": "Ragang", "lat": 7.700, "lng": 124.500, "status": "Active"},
-    {"name": "Smith Volcano", "lat": 19.525, "lng": 121.913, "status": "Active"},
-    {"name": "Camiguin de Babuyanes", "lat": 19.300, "lng": 121.900, "status": "Active"},
-    {"name": "Mount Everest", "lat": 27.9881, "lng": 86.9250, "status": "Inactive"},
-    {"name": "Mount Fuji", "lat": 35.3606, "lng": 138.7274, "status": "Active"},
-    {"name": " Malabuyoc", "lat": 9.6500, "lng": 123.3167, "status": "Active"},
-    {"name": " Ginatilan", "lat": 9.5667, "lng": 123.3667, "status": "Active"},
-    {"name": "Mauna Loa", "lat": 19.4756, "lng": -155.6081, "status": "Active"},
-    {"name": "Kilauea", "lat": 19.4210, "lng": -155.2870, "status": "Active"},
-    {"name": "Mount St. Helens", "lat": 46.1912, "lng": -122.1944, "status": "Active"},
-    {"name": "Mount Rainier", "lat": 46.8523, "lng": -121.7603, "status": "Active"},
-    {"name": "Popocatepetl", "lat": 19.0230, "lng": -98.6220, "status": "Active"},
-    {"name": "Cotopaxi", "lat": -0.6800, "lng": -78.4370, "status": "Active"},
-    {"name": "Mount Etna", "lat": 37.7510, "lng": 14.9934, "status": "Active"},
-    {"name": "Vesuvius", "lat": 40.8214, "lng": 14.4265, "status": "Active"},
-    {"name": "Krakatoa", "lat": -6.1020, "lng": 105.4230, "status": "Active"},
-    {"name": "Mount Fuji", "lat": 35.3606, "lng": 138.7274, "status": "Active"},
-    {"name": "Merapi", "lat": -7.5407, "lng": 110.4462, "status": "Active"},
-    {"name": "Mayon", "lat": 13.2570, "lng": 123.6850, "status": "Active"},
-    {"name": "Pinatubo", "lat": 15.1429, "lng": 120.3496, "status": "Active"},
-    {"name": "Eyjafjallajokull", "lat": 63.6330, "lng": -19.6200, "status": "Active"},
-    {"name": "Stromboli", "lat": 38.7890, "lng": 15.2130, "status": "Active"},
-     {"name": "Nevado del Ruiz", "lat": 4.8920, "lng": -75.3240, "status": "Active"},
-  {"name": "Galeras", "lat": 1.2210, "lng": -77.3580, "status": "Active"},
-  {"name": "Sakurajima", "lat": 31.5850, "lng": 130.6570, "status": "Active"},
-  {"name": "Aso", "lat": 32.8840, "lng": 131.1040, "status": "Active"},
-  {"name": "Tambora", "lat": -8.2470, "lng": 118.0000, "status": "Active"},
-  {"name": "Taal", "lat": 14.0020, "lng": 120.9930, "status": "Active"},
-  {"name": "Hekla", "lat": 63.9830, "lng": -19.7000, "status": "Active"},
-  {"name": "Katla", "lat": 63.6330, "lng": -19.0500, "status": "Active"},
-  {"name": "Nyiragongo", "lat": -1.5200, "lng": 29.2500, "status": "Active"},
-  {"name": "Nyamuragira", "lat": -1.4080, "lng": 29.2000, "status": "Active"},
-  {"name": "Mount Cameroon", "lat": 4.2030, "lng": 9.1700, "status": "Active"},
-  {"name": "Teide", "lat": 28.2720, "lng": -16.6420, "status": "Active"},
-  {"name": "Ruapehu", "lat": -39.2800, "lng": 175.5700, "status": "Active"},
-  {"name": "White Island", "lat": -37.5200, "lng": 177.1800, "status": "Active"},
-  {"name": "Shiveluch", "lat": 56.6530, "lng": 161.3600, "status": "Active"},
-  {"name": "Klyuchevskoy", "lat": 56.0560, "lng": 160.6420, "status": "Active"},
-  {"name": "Pacaya", "lat": 14.3820, "lng": -90.6010, "status": "Active"},
-  {"name": "Fuego", "lat": 14.4730, "lng": -90.8800, "status": "Active"},
-  {"name": "Mount Hood", "lat": 45.3730, "lng": -121.6950, "status": "Active"},
-  {"name": "Mount Redoubt", "lat": 60.4850, "lng": -152.7420, "status": "Active"},
-     {"name": "Anak Krakatau", "lat": -6.1020, "lng": 105.4230, "status": "Active"},
-  {"name": "Agung", "lat": -8.3430, "lng": 115.5080, "status": "Active"},
-  {"name": "Semeru", "lat": -8.1080, "lng": 112.9220, "status": "Active"},
-  {"name": "Bromo", "lat": -7.9420, "lng": 112.9530, "status": "Active"},
-  {"name": "Kerinci", "lat": -1.6970, "lng": 101.2640, "status": "Active"},
-  {"name": "Sinabung", "lat": 3.1700, "lng": 98.3920, "status": "Active"},
-  {"name": "Ulawun", "lat": -5.0500, "lng": 151.3300, "status": "Active"},
-  {"name": "Manam", "lat": -4.0800, "lng": 145.0370, "status": "Active"},
-  {"name": "Bagana", "lat": -6.1370, "lng": 155.1960, "status": "Active"},
-  {"name": "Yasur", "lat": -19.5320, "lng": 169.4470, "status": "Active"},
-  {"name": "Piton de la Fournaise", "lat": -21.2440, "lng": 55.7080, "status": "Active"},
-  {"name": "La Soufriere (St. Vincent)", "lat": 13.3300, "lng": -61.1800, "status": "Active"},
-  {"name": "Soufriere Hills", "lat": 16.7200, "lng": -62.1800, "status": "Active"},
-  {"name": "Santa Maria", "lat": 14.7570, "lng": -91.5520, "status": "Active"},
-  {"name": "Tungurahua", "lat": -1.4670, "lng": -78.4420, "status": "Active"},
-  {"name": "Villarrica", "lat": -39.4200, "lng": -71.9300, "status": "Active"},
-  {"name": "Llaima", "lat": -38.6920, "lng": -71.7290, "status": "Active"},
-  {"name": "Colima", "lat": 19.5140, "lng": -103.6200, "status": "Active"},
-  {"name": "Paricutin", "lat": 19.4930, "lng": -102.2510, "status": "Dormant"},
-  {"name": "Mount Erebus", "lat": -77.5300, "lng": 167.1700, "status": "Active"}
+    {"name": "Taal Volcano",          "lat": 14.0097, "lng": 120.9983, "status": "Active"},
+    {"name": "Mayon Volcano",         "lat": 13.257,  "lng": 123.685,  "status": "Active"},
+    {"name": "Pinatubo Volcano",      "lat": 15.142,  "lng": 120.349,  "status": "Active"},
+    {"name": "Kanlaon Volcano",       "lat": 10.412,  "lng": 123.132,  "status": "Active"},
+    {"name": "Bulusan Volcano",       "lat": 12.770,  "lng": 124.050,  "status": "Active"},
+    {"name": "Mount Apo",             "lat": 6.987,   "lng": 125.255,  "status": "Potentially Active"},
+    {"name": "Mount Pulag",           "lat": 16.611,  "lng": 120.889,  "status": "Inactive"},
+    {"name": "Mount Arayat",          "lat": 15.200,  "lng": 120.742,  "status": "Potentially Active"},
+    {"name": "Leonard Kniaseff",      "lat": 7.100,   "lng": 125.800,  "status": "Potentially Active"},
+    {"name": "Cabalian",              "lat": 10.200,  "lng": 125.200,  "status": "Potentially Active"},
+    {"name": "Isarog",                "lat": 13.600,  "lng": 123.400,  "status": "Potentially Active"},
+    {"name": "Babuyan Claro",         "lat": 19.500,  "lng": 121.900,  "status": "Active"},
+    {"name": "Biliran",               "lat": 11.520,  "lng": 124.530,  "status": "Active"},
+    {"name": "Cagua",                 "lat": 18.220,  "lng": 122.120,  "status": "Active"},
+    {"name": "Didicas",               "lat": 19.080,  "lng": 122.200,  "status": "Active"},
+    {"name": "Iraya",                 "lat": 20.366,  "lng": 122.000,  "status": "Active"},
+    {"name": "Matutum",               "lat": 6.350,   "lng": 125.070,  "status": "Active"},
+    {"name": "Makaturing",            "lat": 7.650,   "lng": 124.300,  "status": "Active"},
+    {"name": "Musuan",                "lat": 7.600,   "lng": 125.070,  "status": "Active"},
+    {"name": "Parker",                "lat": 6.120,   "lng": 124.890,  "status": "Active"},
+    {"name": "Ragang",                "lat": 7.700,   "lng": 124.500,  "status": "Active"},
+    {"name": "Smith Volcano",         "lat": 19.525,  "lng": 121.913,  "status": "Active"},
+    {"name": "Camiguin de Babuyanes", "lat": 19.300,  "lng": 121.900,  "status": "Active"},
+    {"name": "Mount Everest",         "lat": 27.9881, "lng": 86.9250,  "status": "Inactive"},
+    {"name": "Mount Fuji",            "lat": 35.3606, "lng": 138.7274, "status": "Active"},
+    {"name": "Malabuyoc",             "lat": 9.6500,  "lng": 123.3167, "status": "Active"},
+    {"name": "Ginatilan",             "lat": 9.5667,  "lng": 123.3667, "status": "Active"},
 ]
 
-# ----------------------- Sidebar Controls -----------------------
-st.set_page_config(layout="wide", page_title="Volcano Simulation")
-st.sidebar.header("⚙️ Simulation Controls")
-volcano_names = [v["name"] for v in volcanoes]
-selected_volcano = st.sidebar.selectbox("Select Volcano", volcano_names)
+ALERT_LABELS = ["🟢 Normal", "🔵 Abnormal", "🟡 Increasing Unrest", "🟠 Minor Eruption", "🔴 Hazardous Eruption"]
+ALERT_RADIUS = {0: 0, 1: 5, 2: 12, 3: 25, 4: 50}
 
-alert_level = st.sidebar.radio(
-    "Alert Level",
-    [0, 1, 2, 3, 4],
-    format_func=lambda x: ["Normal", "Abnormal", "Increasing Unrest", "Minor Eruption", "Hazardous Eruption"][x],
-    index=2
-)
-wind_speed = st.sidebar.slider("Wind Speed (km/h)", 0, 50, 10)
-wind_dir = st.sidebar.slider("Wind Direction (°)", 0, 360, 90)
-ash_scale = st.sidebar.slider("Ash Scale", 0.1, 2.0, 1.0)
+# ----------------------- Page Config -----------------------
+st.set_page_config(layout="wide", page_title="🌋 Volcano Simulation", page_icon="🌋")
 
-st.sidebar.markdown("---")
-st.sidebar.subheader("🗺️ Map Appearance")
-#map_opacity = st.sidebar.slider("Background Sat Opacity", 0.0, 1.0, 1.0)
-show_ash = st.sidebar.checkbox("Show Ash Plume", value=True)
-show_damage = st.sidebar.checkbox("Show Damage Map", value=True)
-show_rings = st.sidebar.checkbox("Show Impact Rings", value=True)
+st.markdown("""
+<style>
+/* Sidebar header branding */
+[data-testid="stSidebar"] > div:first-child {
+    padding-top: 1rem;
+}
+.sidebar-brand {
+    font-size: 1.4rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    color: #ff4500;
+    margin-bottom: 0.2rem;
+}
+.sidebar-sub {
+    font-size: 0.78rem;
+    color: #888;
+    margin-bottom: 1.2rem;
+}
+/* Alert badge */
+.alert-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    margin-top: 4px;
+}
+/* Section dividers */
+.sidebar-section {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: #aaa;
+    text-transform: uppercase;
+    margin: 1.1rem 0 0.4rem 0;
+}
+</style>
+""", unsafe_allow_html=True)
 
-# ----------------------- Simulation Setup -----------------------
-v = next(v for v in volcanoes if v["name"] == selected_volcano)
-settings = {0: {"max_radius": 0}, 1: {"max_radius": 5}, 2: {"max_radius": 12}, 3: {"max_radius": 25}, 4: {"max_radius": 50}}[alert_level]
-max_radius_km = settings["max_radius"]
+# ----------------------- Sidebar -----------------------
+with st.sidebar:
+    st.markdown('<div class="sidebar-brand">🌋 VolcanoSim</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-sub">Philippine Volcano Hazard Simulator</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="sidebar-section">🗺 Volcano Selection</div>', unsafe_allow_html=True)
+    volcano_names = [v["name"].strip() for v in volcanoes]
+    selected_name = st.selectbox("Select Volcano", volcano_names, label_visibility="collapsed")
+
+    v = next(vd for vd in volcanoes if vd["name"].strip() == selected_name)
+    status_color = {"Active": "🔴", "Potentially Active": "🟡", "Inactive": "⚪"}.get(v["status"], "⚫")
+    st.caption(f"{status_color} {v['status']}  •  {v['lat']:.3f}°N, {v['lng']:.3f}°E")
+
+    st.markdown('<div class="sidebar-section">⚠️ Alert Level</div>', unsafe_allow_html=True)
+    alert_level = st.select_slider(
+        "Alert Level",
+        options=[0, 1, 2, 3, 4],
+        format_func=lambda x: ALERT_LABELS[x],
+        value=2,
+        label_visibility="collapsed"
+    )
+    max_radius_km = ALERT_RADIUS[alert_level]
+    if max_radius_km > 0:
+        st.caption(f"Hazard radius: **{max_radius_km} km**")
+    else:
+        st.caption("No active hazard zone")
+
+    st.markdown('<div class="sidebar-section">💨 Wind Conditions</div>', unsafe_allow_html=True)
+    col1, col2 = st.columns(2)
+    with col1:
+        wind_speed = st.number_input("Speed (km/h)", min_value=0, max_value=200, value=10, step=5)
+    with col2:
+        wind_dir = st.number_input("Direction (°)", min_value=0, max_value=360, value=90, step=5)
+    ash_scale = st.slider("Ash Spread Scale", 0.1, 2.0, 1.0, 0.1)
+
+    st.markdown('<div class="sidebar-section">🗂 Layer Visibility</div>', unsafe_allow_html=True)
+    show_ash    = st.toggle("Ash Plume", value=True)
+    show_damage = st.toggle("Damage Intensity", value=True)
+    show_rings  = st.toggle("Impact Rings (5 km)", value=True)
+
+# ----------------------- Simulation -----------------------
 radius = max_radius_km / 2 if max_radius_km > 0 else 0.1
-
 extent_km = max(20, int(max_radius_km * 1.8))
 
 sim = VolcanoSimulation(
@@ -141,96 +159,86 @@ sim = VolcanoSimulation(
     extent_km=extent_km
 )
 
-# ----------------------- Map Setup -----------------------
-# Initialize map without default tiles so we can control layers
+# ----------------------- Map -----------------------
 m = folium.Map(location=[v["lat"], v["lng"]], zoom_start=9, control_scale=True, tiles=None)
 
-# Add Satellite Layer (Esri)
 folium.TileLayer(
     tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    attr='Esri',
-    name='Satellite View',
-    #opacity=map_opacity,
+    attr='Esri World Imagery',
+    name='Satellite',
     overlay=False,
     control=True
 ).add_to(m)
 
-# Add Standard Street View Layer
-#folium.TileLayer('OpenStreetMap', name='Street View', overlay=False).add_to(m)
+folium.TileLayer('OpenStreetMap', name='Street Map', overlay=False, control=True).add_to(m)
 
 # Volcano markers
 for vdata in volcanoes:
-    status = vdata["status"]
-    icon_color = "red" if status == "Active" else "orange" if status == "Potentially Active" else "blue"
+    icon_color = {"Active": "red", "Potentially Active": "orange", "Inactive": "blue"}.get(vdata["status"], "gray")
+    is_selected = vdata["name"].strip() == selected_name
     folium.Marker(
         location=[vdata["lat"], vdata["lng"]],
-        popup=f"{vdata['name']} ({status})",
-        icon=folium.Icon(color=icon_color)
+        popup=folium.Popup(f"<b>{vdata['name']}</b><br>{vdata['status']}", max_width=200),
+        tooltip=vdata["name"].strip(),
+        icon=folium.Icon(color=icon_color, icon="fire" if is_selected else "info-sign", prefix="glyphicon")
     ).add_to(m)
 
-# Hazard zone circle
+# Hazard zone boundary
 if show_damage and max_radius_km > 0:
     folium.Circle(
         location=[v["lat"], v["lng"]],
         radius=max_radius_km * 1000,
-        color="orange",
+        color="#ff6600",
+        weight=2,
         fill=True,
-        fill_opacity=0.3,
-        popup=f"Hazard zone: {selected_volcano}"
+        fill_color="#ff6600",
+        fill_opacity=0.08,
+        tooltip=f"Hazard boundary: {max_radius_km} km"
     ).add_to(m)
-
-# ----------------------- Overlays -----------------------
 
 # Damage overlay
 if show_damage:
     dmg_img = sim.compute_damage_overlay(
-        radius,
-        scale=alert_level,
-        eq_mag_num=3.0,
-        max_radius=max_radius_km,
-        cmap_name="inferno"
+        radius, scale=alert_level, eq_mag_num=3.0,
+        max_radius=max_radius_km, cmap_name="inferno"
     )
-    dmg_url = array_to_base64_png(dmg_img)
     folium.raster_layers.ImageOverlay(
-        image=dmg_url,
+        image=array_to_base64_png(dmg_img),
         bounds=[[sim.lat_min, sim.lon_min], [sim.lat_max, sim.lon_max]],
-        opacity=0.8,
-        name="Damage Intensity Overlay"
+        opacity=0.75,
+        name="Damage Intensity"
     ).add_to(m)
 
 # Ash overlay
 if show_ash:
     ash_img = sim.compute_ash_overlay(
-        radius * ash_scale,
-        wind_dir,
-        wind_speed,
-        max_radius=max_radius_km,
-        cmap_name="Greys"
+        radius * ash_scale, wind_dir, wind_speed,
+        max_radius=max_radius_km, cmap_name="Greys"
     )
-    ash_url = array_to_base64_png(ash_img)
     folium.raster_layers.ImageOverlay(
-        image=ash_url,
+        image=array_to_base64_png(ash_img),
         bounds=[[sim.lat_min, sim.lon_min], [sim.lat_max, sim.lon_max]],
-        opacity=0.8,
-        name="Ash Plume Overlay"
+        opacity=0.70,
+        name="Ash Plume"
     ).add_to(m)
 
 # Impact rings
 if show_rings and max_radius_km > 0:
-    for r in range(5000, max_radius_km * 1000 + 1, 5000):
+    for r_m in range(5000, max_radius_km * 1000 + 1, 5000):
         folium.Circle(
             location=[v["lat"], v["lng"]],
-            radius=r,
-            color="purple",
+            radius=r_m,
+            color="#cc44ff",
             fill=False,
-            dash_array="5,5",
-            opacity=0.5
+            dash_array="6,4",
+            weight=1.2,
+            opacity=0.55,
+            tooltip=f"{r_m // 1000} km radius"
         ).add_to(m)
 
-# Add Layer Control UI (top right)
-folium.LayerControl().add_to(m)
+folium.LayerControl(collapsed=False).add_to(m)
 
-# ----------------------- Legends -----------------------
+# ----------------------- Map Legend (combined, single block) -----------------------
 class FloatLegend(MacroElement):
     def __init__(self, html):
         super().__init__()
@@ -240,43 +248,59 @@ class FloatLegend(MacroElement):
         {{% endmacro %}}
         """)
 
-legend_damage_html = """
-<div style='position: fixed; bottom: 30px; left: 30px; width: 160px; height: 140px;
-     background-color: white; z-index:9999; font-size:14px;
-     border:2px solid grey; padding: 10px;'>
-<b>Damage Intensity</b><br>
-<span style='background:#ffff00;width:20px;height:10px;display:inline-block;'></span> Low<br>
-<span style='background:#ffa500;width:20px;height:10px;display:inline-block;'></span> Moderate<br>
-<span style='background:#ff0000;width:20px;height:10px;display:inline-block;'></span> High<br>
-<span style='background:#800080;width:20px;height:10px;display:inline-block;'></span> Severe
+legend_html = """
+<div style='
+    position: fixed; bottom: 28px; left: 28px;
+    background: rgba(15,15,20,0.88);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 10px;
+    padding: 12px 16px;
+    z-index: 9999;
+    font-family: monospace;
+    font-size: 12px;
+    color: #eee;
+    min-width: 170px;
+    backdrop-filter: blur(4px);
+'>
+  <div style='font-weight:700; font-size:13px; margin-bottom:8px; color:#ff6a00;'>🌋 Legend</div>
+  <div style='margin-bottom:6px; font-size:11px; color:#aaa; font-weight:600;'>DAMAGE INTENSITY</div>
+  <div style='display:flex;align-items:center;gap:8px;margin-bottom:3px;'>
+    <span style='background:#ffff00;width:16px;height:10px;display:inline-block;border-radius:2px;'></span> Low
+  </div>
+  <div style='display:flex;align-items:center;gap:8px;margin-bottom:3px;'>
+    <span style='background:#ffa500;width:16px;height:10px;display:inline-block;border-radius:2px;'></span> Moderate
+  </div>
+  <div style='display:flex;align-items:center;gap:8px;margin-bottom:3px;'>
+    <span style='background:#ff0000;width:16px;height:10px;display:inline-block;border-radius:2px;'></span> High
+  </div>
+  <div style='display:flex;align-items:center;gap:8px;margin-bottom:10px;'>
+    <span style='background:#800080;width:16px;height:10px;display:inline-block;border-radius:2px;'></span> Severe
+  </div>
+  <div style='margin-bottom:6px; font-size:11px; color:#aaa; font-weight:600;'>VOLCANO STATUS</div>
+  <div style='display:flex;align-items:center;gap:8px;margin-bottom:3px;'>
+    <span style='color:#e74c3c;font-size:14px;'>📍</span> Active
+  </div>
+  <div style='display:flex;align-items:center;gap:8px;margin-bottom:3px;'>
+    <span style='color:#f39c12;font-size:14px;'>📍</span> Potentially Active
+  </div>
+  <div style='display:flex;align-items:center;gap:8px;'>
+    <span style='color:#3498db;font-size:14px;'>📍</span> Inactive
+  </div>
 </div>
 """
-m.add_child(FloatLegend(legend_damage_html))
+m.add_child(FloatLegend(legend_html))
 
-# Colorbar (Right side)
-def make_colorbar(cmap_name="violet_yellow", vmin=0, vmax=1, label="Damage Intensity"):
-    fig, ax = plt.subplots(figsize=(0.4, 3))
-    norm = plt.Normalize(vmin=vmin, vmax=vmax)
-    from volcano_models import VolcanoSimulation
-    cmap = VolcanoSimulation.get_colormap(cmap_name)
-    fig.subplots_adjust(right=0.5)
-    cb = plt.colorbar(plt.cm.ScalarMappable(norm=norm, cmap=cmap), cax=ax)
-    cb.set_label(label)
-    buf = BytesIO()
-    plt.savefig(buf, format="png", bbox_inches="tight", transparent=True)
-    buf.seek(0)
-    b64 = base64.b64encode(buf.read()).decode("utf-8")
-    plt.close(fig)
-    return f"<img src='data:image/png;base64,{b64}' style='position: fixed; top: 30px; right: 30px; z-index:9999; height:200px;'>"
+# ----------------------- Render -----------------------
+st.markdown(f"""
+<div style='display:flex; align-items:center; justify-content:space-between; margin-bottom:0.5rem;'>
+  <div>
+    <span style='font-size:1.5rem; font-weight:800;'>🌋 {selected_name}</span>
+    <span style='margin-left:12px; font-size:0.9rem; color:#888;'>{ALERT_LABELS[alert_level]}</span>
+  </div>
+  <div style='font-size:0.8rem; color:#888;'>
+    Wind: {wind_speed} km/h @ {wind_dir}° &nbsp;|&nbsp; Radius: {max_radius_km} km
+  </div>
+</div>
+""", unsafe_allow_html=True)
 
-colorbar_html = make_colorbar(cmap_name="violet_yellow", vmin=0, vmax=1, label="Damage Intensity")
-m.get_root().html.add_child(folium.Element(colorbar_html))
-
-# ----------------------- Render Map -----------------------
-st_folium(m, width=-1, height=1000)
-
-
-
-
-
-
+st_folium(m, width="100%", height=820, returned_objects=[])
