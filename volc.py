@@ -111,13 +111,13 @@ TILES = {
     },
 }
 
-DEFAULT_TILE = "🌍 Hybrid (Google)"
+DEFAULT_TILE = "🛰 Satellite (Esri Clarity)"
 
 # ----------------------- Session state -----------------------
 if "active_tile" not in st.session_state:
     st.session_state.active_tile = DEFAULT_TILE
 if "ash_cmap" not in st.session_state:
-    st.session_state.ash_cmap = "🟠 Orange-Red (vivid)"
+    st.session_state.ash_cmap = "🌫 Grey (classic)"
 
 # ----------------------- Page Config -----------------------
 st.set_page_config(layout="wide", page_title="VolcanoSim", page_icon="🌋")
@@ -237,7 +237,7 @@ with st.sidebar:
     st.markdown('<div class="sidebar-section">🗂 Layers</div>', unsafe_allow_html=True)
     show_ash    = st.toggle("Ash Plume",            value=True)
     show_damage = st.toggle("Damage Intensity",     value=True)
-    show_rings  = st.toggle("Impact Rings",  value=True)
+    show_rings  = st.toggle("Impact Rings (5 km)",  value=True)
 
     st.markdown('<div class="sidebar-section">🛰 Base Map</div>', unsafe_allow_html=True)
     tile_keys = list(TILES.keys())
