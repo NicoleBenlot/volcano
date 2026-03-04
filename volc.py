@@ -41,10 +41,10 @@ def cached_ash_overlay(volcano_x, volcano_y, grid_res, extent_km,
 
 # ----------------------- Volcano Data -----------------------
 volcanoes = [
-    {"name": "Kanlaon Volcano",       "lat": 10.412,  "lng": 123.132,  "status": "Active"},
     {"name": "Taal Volcano",          "lat": 14.0097, "lng": 120.9983, "status": "Active"},
     {"name": "Mayon Volcano",         "lat": 13.257,  "lng": 123.685,  "status": "Active"},
     {"name": "Pinatubo Volcano",      "lat": 15.142,  "lng": 120.349,  "status": "Active"},
+    {"name": "Kanlaon Volcano",       "lat": 10.412,  "lng": 123.132,  "status": "Active"},
     {"name": "Bulusan Volcano",       "lat": 12.770,  "lng": 124.050,  "status": "Active"},
     {"name": "Mount Apo",             "lat": 6.987,   "lng": 125.255,  "status": "Potentially Active"},
     {"name": "Mount Pulag",           "lat": 16.611,  "lng": 120.889,  "status": "Inactive"},
@@ -66,6 +66,8 @@ volcanoes = [
     {"name": "Camiguin de Babuyanes", "lat": 19.300,  "lng": 121.900,  "status": "Active"},
     {"name": "Mount Everest",         "lat": 27.9881, "lng": 86.9250,  "status": "Inactive"},
     {"name": "Mount Fuji",            "lat": 35.3606, "lng": 138.7274, "status": "Active"},
+    {"name": "Malabuyoc",             "lat": 9.6500,  "lng": 123.3167, "status": "Active"},
+    {"name": "Ginatilan",             "lat": 9.5667,  "lng": 123.3667, "status": "Active"},
 ]
 
 ALERT_LABELS  = ["🟢 Normal", "🔵 Abnormal", "🟡 Increasing Unrest", "🟠 Minor Eruption", "🔴 Hazardous Eruption"]
@@ -74,6 +76,13 @@ ALERT_RADIUS  = {0: 0, 1: 5, 2: 12, 3: 25, 4: 50}
 ALERT_ZOOM    = {0: 11, 1: 11, 2: 10, 3: 9, 4: 8}
 # Grid resolution scales with extent so quality stays consistent
 ALERT_GRIDRES = {0: 120, 1: 150, 2: 180, 3: 210, 4: 240}
+# Scientifically grounded default magnitude per alert level (PHIVOLCS/USGS data):
+# Level 0 → background micro-seismicity M0.3–1.5       → default M1.0
+# Level 1 → low-level VT swarms M0.3–2.2 (Bulusan)    → default M2.0
+# Level 2 → increasing VT/LF activity M2.0–3.5         → default M3.5
+# Level 3 → intense seismicity pre-eruption M3–5        → default M4.5
+# Level 4 → eruption-phase, can reach M5–6             → default M5.5
+ALERT_EQ_DEFAULT = {0: 1.0, 1: 2.0, 2: 3.5, 3: 4.5, 4: 5.5}
 
 ASH_CMAPS = {
     "🟠 Orange-Red (vivid)": "ash_orange",
@@ -84,16 +93,13 @@ ASH_CMAPS = {
     "🟣 Plasma":             "plasma",
 }
 
+# Best free, no-API-key tile sources:
+# - Esri Clarity: newer Esri endpoint, fewer black ocean tiles than World_Imagery
+# - Esri World Imagery: original, wider zoom support as fallback
+# - Google (via public XYZ): best global coverage, no key needed at low traffic
+# - CARTO Dark Matter: clean dark street map, no key needed
+# - CARTO Positron: clean light street map, no key needed
 TILES = {
-     "🌍 Hybrid (Google)":             {
-        "url":  "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
-        "attr": "Google Hybrid",
-    },
-    "🛰 Satellite (Google)":          {
-        "url":  "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
-        "attr": "Google Satellite",
-    },
-    #remove if blocked by google due to the amount of requests, or if it causes performance issues
     "🛰 Satellite (Esri Clarity)":   {
         "url":  "https://clarity.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
         "attr": "Esri World Imagery Clarity",
@@ -102,13 +108,9 @@ TILES = {
         "url":  "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
         "attr": "© OpenStreetMap contributors",
     },
-    "🛰 Satellite (Esri World Imagery)": {
-        "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-        "attr": "Tiles © Esri",
-    }
 }
 
-DEFAULT_TILE = "🛰 Satellite (Esri World Imagery)"
+DEFAULT_TILE = "🛰 Satellite (Esri Clarity)"
 
 # ----------------------- Session state -----------------------
 if "active_tile" not in st.session_state:
@@ -204,13 +206,24 @@ with st.sidebar:
         format_func=lambda x: ALERT_LABELS[x], value=2,
         label_visibility="collapsed"
     )
-    zoom_level    = ALERT_ZOOM[alert_level]
     max_radius_km = ALERT_RADIUS[alert_level]
+    zoom_level    = ALERT_ZOOM[alert_level]
     grid_res      = ALERT_GRIDRES[alert_level]
     st.caption(f"Hazard radius: **{max_radius_km} km**" if max_radius_km > 0 else "No active hazard zone")
 
-    st.markdown('<div class="checkbox">🌍 Seismic Activity</div>', unsafe_allow_html=True)
-    eq_magnitude = st.slider("Earthquake Magnitude", 0.0, 9.0, 3.0, 0.5, format="M %.1f")
+    st.markdown('<div class="sidebar-section">🌍 Seismic Activity</div>', unsafe_allow_html=True)
+    # Reset magnitude default when alert level changes
+    eq_default = ALERT_EQ_DEFAULT[alert_level]
+    if st.session_state.get("last_alert_level") != alert_level:
+        st.session_state["eq_magnitude"] = eq_default
+        st.session_state["last_alert_level"] = alert_level
+    eq_magnitude = st.slider(
+        "Earthquake Magnitude", 0.0, 9.0,
+        value=st.session_state.get("eq_magnitude", eq_default),
+        step=0.1, format="M %.1f",
+        key="eq_magnitude"
+    )
+    st.caption(f"Typical range for this level: M{eq_default - 1.0:.1f} – M{eq_default + 0.5:.1f}")
 
     st.markdown('<div class="sidebar-section">💨 Wind Conditions</div>', unsafe_allow_html=True)
     c1, c2 = st.columns(2)
@@ -234,7 +247,7 @@ with st.sidebar:
     st.markdown('<div class="sidebar-section">🗂 Layers</div>', unsafe_allow_html=True)
     show_ash    = st.toggle("Ash Plume",            value=True)
     show_damage = st.toggle("Damage Intensity",     value=True)
-    show_rings  = st.toggle("Impact Rings",  value=True)
+    show_rings  = st.toggle("Impact Rings (5 km)",  value=True)
 
     st.markdown('<div class="sidebar-section">🛰 Base Map</div>', unsafe_allow_html=True)
     tile_keys = list(TILES.keys())
@@ -258,7 +271,7 @@ sim = get_simulation(v["lng"], v["lat"], grid_res, extent_km)
 # Overlays — cached per unique input combination
 dmg_rgba, dmg_field = cached_damage_overlay(
     v["lng"], v["lat"], grid_res, extent_km,
-    radius, alert_level, eq_magnitude, max_radius_km, "inferno"
+    radius, alert_level, eq_magnitude, max_radius_km, "violet_yellow"
 ) if show_damage else (None, None)
 
 ash_rgba, ash_field = cached_ash_overlay(
@@ -282,8 +295,8 @@ tile_url  = tile_cfg["url"]
 tile_attr = tile_cfg["attr"]
 
 m = folium.Map(
-    location=[v["lat"], v["lng"]], 
-    zoom_start=zoom_level,         
+    location=[v["lat"], v["lng"]],
+    zoom_start=zoom_level,          # auto-zooms based on alert level
     control_scale=True,
     tiles=tile_url,
     attr=tile_attr,
@@ -429,5 +442,3 @@ else:
       </div>
     </div>
     """, unsafe_allow_html=True)
-
-#testing testing things just got more interesting
