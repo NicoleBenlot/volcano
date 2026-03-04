@@ -2,7 +2,7 @@ import streamlit as st
 import folium
 from streamlit_folium import st_folium
 from volcano_models import VolcanoSimulation
-from branca.element import MacroElement, Element
+from branca.element import MacroElement
 from jinja2 import Template
 import base64
 from io import BytesIO
@@ -49,16 +49,23 @@ volcanoes = [
 ALERT_LABELS = ["🟢 Normal", "🔵 Abnormal", "🟡 Increasing Unrest", "🟠 Minor Eruption", "🔴 Hazardous Eruption"]
 ALERT_RADIUS = {0: 0, 1: 5, 2: 12, 3: 25, 4: 50}
 
-# Layer names must exactly match what folium registers
-TILE_SATELLITE   = "Satellite"
-TILE_STREET      = "Street Map"
+ASH_CMAPS = {
+    "⬛ Grey":           "white_gray_black",
+    "🟡 Yellow-Orange":  "ash_yellow",
+    "🔵 Blue":           "Blues",
+    "🟣 Purple":         "Purples",
+    "🌈 Thermal":        "plasma",
+}
+
+TILE_SATELLITE = "Satellite"
+TILE_STREET    = "Street Map"
 
 # ----------------------- Session state defaults -----------------------
 if "active_tile" not in st.session_state:
-    st.session_state.active_tile = TILE_SATELLITE   # default to satellite
+    st.session_state.active_tile = TILE_SATELLITE
 
 # ----------------------- Page Config -----------------------
-st.set_page_config(layout="wide", page_title="🌋 VolcanoSim", page_icon="🌋")
+st.set_page_config(layout="wide", page_title="VolcanoSim", page_icon="🌋")
 
 st.markdown("""
 <style>
@@ -81,11 +88,7 @@ iframe {
     color: #ff4500;
     margin-bottom: 0.1rem;
 }
-.sidebar-sub {
-    font-size: 0.75rem;
-    color: #888;
-    margin-bottom: 1rem;
-}
+.sidebar-sub { font-size: 0.75rem; color: #888; margin-bottom: 1rem; }
 .sidebar-section {
     font-size: 0.70rem;
     font-weight: 700;
@@ -104,19 +107,8 @@ iframe {
     background: rgba(0,0,0,0.05);
     border-bottom: 1px solid rgba(0,0,0,0.09);
 }
-.map-title {
-    font-size: 1.05rem;
-    font-weight: 800;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-.map-meta {
-    color: #777;
-    font-size: 0.78rem;
-    display: flex;
-    gap: 14px;
-}
+.map-title { font-size: 1.05rem; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+.map-meta  { color: #777; font-size: 0.78rem; display: flex; gap: 14px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -142,27 +134,33 @@ with st.sidebar:
     st.caption(f"Hazard radius: **{max_radius_km} km**" if max_radius_km > 0 else "No active hazard zone")
 
     st.markdown('<div class="sidebar-section">🌍 Seismic Activity</div>', unsafe_allow_html=True)
-    eq_magnitude = st.slider("Earthquake Magnitude (Richter)", 0.0, 9.0, 3.0, 0.5, format="M %.1f")
+    eq_magnitude = st.slider("Earthquake Magnitude", 0.0, 9.0, 3.0, 0.5, format="M %.1f")
 
     st.markdown('<div class="sidebar-section">💨 Wind Conditions</div>', unsafe_allow_html=True)
-    col1, col2 = st.columns(2)
-    with col1:
+    c1, c2 = st.columns(2)
+    with c1:
         wind_speed = st.number_input("Speed (km/h)", min_value=0, max_value=200, value=10, step=5)
-    with col2:
+    with c2:
         wind_dir = st.number_input("Direction (°)", min_value=0, max_value=360, value=90, step=5)
     ash_scale = st.slider("Ash Spread Scale", 0.1, 2.0, 1.0, 0.1)
+
+    st.markdown('<div class="sidebar-section">🌫️ Ash Appearance</div>', unsafe_allow_html=True)
+    ash_cmap_label = st.selectbox("Ash color", list(ASH_CMAPS.keys()), label_visibility="collapsed")
+    ash_opacity    = st.slider("Ash Opacity", 0.1, 1.0, 0.75, 0.05)
+    ash_cmap       = ASH_CMAPS[ash_cmap_label]
 
     st.markdown('<div class="sidebar-section">🗂 Layers</div>', unsafe_allow_html=True)
     show_ash    = st.toggle("Ash Plume",            value=True)
     show_damage = st.toggle("Damage Intensity",     value=True)
     show_rings  = st.toggle("Impact Rings (5 km)",  value=True)
 
-    st.markdown('<div class="sidebar-section">🗺 Base Map</div>', unsafe_allow_html=True)
+    # KEY FIX: base map controlled entirely here — NO folium LayerControl
+    st.markdown('<div class="sidebar-section">🛰️ Base Map</div>', unsafe_allow_html=True)
     chosen_tile = st.radio(
-        "Base map",
-        [TILE_SATELLITE, TILE_STREET],
+        "Base map", [TILE_SATELLITE, TILE_STREET],
         index=0 if st.session_state.active_tile == TILE_SATELLITE else 1,
-        label_visibility="collapsed"
+        horizontal=True,
+        label_visibility="collapsed",
     )
     st.session_state.active_tile = chosen_tile
 
@@ -176,25 +174,21 @@ sim = VolcanoSimulation(
 )
 
 # ----------------------- Map -----------------------
-# Build the map with the user's chosen tile as the active layer.
-# We do this by adding the chosen tile FIRST (folium activates first added tile).
-m = folium.Map(location=[v["lat"], v["lng"]], zoom_start=9, control_scale=True, tiles=None)
-
-satellite_layer = folium.TileLayer(
-    tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    attr='Esri World Imagery', name=TILE_SATELLITE, overlay=False, control=True
-)
-street_layer = folium.TileLayer(
-    'OpenStreetMap', name=TILE_STREET, overlay=False, control=True
-)
-
-# Add active tile first so it renders on top by default
+# Tile URL baked directly into the map — no LayerControl, no reset possible
 if st.session_state.active_tile == TILE_SATELLITE:
-    satellite_layer.add_to(m)
-    street_layer.add_to(m)
+    tile_url  = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+    tile_attr = "Esri World Imagery"
 else:
-    street_layer.add_to(m)
-    satellite_layer.add_to(m)
+    tile_url  = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+    tile_attr = "OpenStreetMap"
+
+m = folium.Map(
+    location=[v["lat"], v["lng"]],
+    zoom_start=9,
+    control_scale=True,
+    tiles=tile_url,
+    attr=tile_attr,
+)
 
 # Volcano markers
 for vdata in volcanoes:
@@ -231,12 +225,12 @@ if show_damage:
 if show_ash:
     ash_img = sim.compute_ash_overlay(
         radius * ash_scale, wind_dir, wind_speed,
-        max_radius=max_radius_km, cmap_name="Greys"
+        max_radius=max_radius_km, cmap_name=ash_cmap
     )
     folium.raster_layers.ImageOverlay(
         image=array_to_base64_png(ash_img),
         bounds=[[sim.lat_min, sim.lon_min], [sim.lat_max, sim.lon_max]],
-        opacity=0.70, name="Ash Plume"
+        opacity=ash_opacity, name="Ash Plume"
     ).add_to(m)
 
 # Impact rings
@@ -248,16 +242,14 @@ if show_rings and max_radius_km > 0:
             weight=1.2, opacity=0.55, tooltip=f"{r_m // 1000} km radius"
         ).add_to(m)
 
-folium.LayerControl(collapsed=False).add_to(m)
-
-# ----------------------- Map Legend -----------------------
+# ----------------------- Legend -----------------------
 class FloatLegend(MacroElement):
     def __init__(self, html):
         super().__init__()
-        self._template = Template(f"""
-        {{% macro html(this, kwargs) %}}
-        {html}
-        {{% endmacro %}}
+        self._template = Template("""
+        {% macro html(this, kwargs) %}
+        """ + html + """
+        {% endmacro %}
         """)
 
 m.add_child(FloatLegend("""
@@ -274,16 +266,16 @@ m.add_child(FloatLegend("""
     min-width:175px;
     backdrop-filter:blur(6px);
 '>
-  <div style='font-weight:700;font-size:13px;margin-bottom:9px;color:#ff6a00;'>🌋 Legend</div>
+  <div style='font-weight:700;font-size:13px;margin-bottom:9px;color:#ff6a00;'>&#127755; Legend</div>
   <div style='font-size:10px;color:#aaa;font-weight:700;letter-spacing:.08em;margin-bottom:5px;'>DAMAGE INTENSITY</div>
   <div style='display:flex;align-items:center;gap:7px;margin-bottom:3px;'><span style='background:#ffff00;width:15px;height:9px;display:inline-block;border-radius:2px;'></span>Low</div>
   <div style='display:flex;align-items:center;gap:7px;margin-bottom:3px;'><span style='background:#ffa500;width:15px;height:9px;display:inline-block;border-radius:2px;'></span>Moderate</div>
   <div style='display:flex;align-items:center;gap:7px;margin-bottom:3px;'><span style='background:#ff0000;width:15px;height:9px;display:inline-block;border-radius:2px;'></span>High</div>
   <div style='display:flex;align-items:center;gap:7px;margin-bottom:10px;'><span style='background:#800080;width:15px;height:9px;display:inline-block;border-radius:2px;'></span>Severe</div>
   <div style='font-size:10px;color:#aaa;font-weight:700;letter-spacing:.08em;margin-bottom:5px;'>VOLCANO STATUS</div>
-  <div style='display:flex;align-items:center;gap:7px;margin-bottom:3px;'><span style='color:#e74c3c;font-size:14px;'>●</span>Active</div>
-  <div style='display:flex;align-items:center;gap:7px;margin-bottom:3px;'><span style='color:#f39c12;font-size:14px;'>●</span>Potentially Active</div>
-  <div style='display:flex;align-items:center;gap:7px;'><span style='color:#5dade2;font-size:14px;'>●</span>Inactive</div>
+  <div style='display:flex;align-items:center;gap:7px;margin-bottom:3px;'><span style='color:#e74c3c;font-size:14px;'>&#9679;</span>Active</div>
+  <div style='display:flex;align-items:center;gap:7px;margin-bottom:3px;'><span style='color:#f39c12;font-size:14px;'>&#9679;</span>Potentially Active</div>
+  <div style='display:flex;align-items:center;gap:7px;'><span style='color:#5dade2;font-size:14px;'>&#9679;</span>Inactive</div>
 </div>
 """))
 
@@ -291,13 +283,14 @@ m.add_child(FloatLegend("""
 st.markdown(f"""
 <div class="map-header">
   <div class="map-title">
-    🌋 {selected_name}
+    &#127755; {selected_name}
     <span style='font-size:0.82rem;font-weight:400;color:#666;'>{ALERT_LABELS[alert_level]}</span>
   </div>
   <div class="map-meta">
-    <span>💨 {wind_speed} km/h @ {wind_dir}°</span>
-    <span>📏 {max_radius_km} km</span>
-    <span>📳 M{eq_magnitude:.1f}</span>
+    <span>&#128168; {wind_speed} km/h @ {wind_dir}&deg;</span>
+    <span>&#128207; {max_radius_km} km</span>
+    <span>&#128243; M{eq_magnitude:.1f}</span>
+    <span>&#128752; {st.session_state.active_tile}</span>
   </div>
 </div>
 """, unsafe_allow_html=True)

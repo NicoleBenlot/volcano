@@ -50,7 +50,8 @@ class VolcanoSimulation:
     # ------------------------------------------------------------------
     @staticmethod
     def get_colormap(cmap_name="inferno"):
-        """Return a matplotlib colormap, including two custom named ones."""
+        """Return a matplotlib colormap, including custom named ones."""
+        # --- custom colormaps ---
         if cmap_name == "violet_yellow":
             return LinearSegmentedColormap.from_list(
                 "violet_yellow", ["#800080", "#ff0000", "#ffa500", "#ffff00"]
@@ -59,19 +60,37 @@ class VolcanoSimulation:
             return LinearSegmentedColormap.from_list(
                 "white_gray_black", ["#ffffff", "#888888", "#000000"]
             )
-        # Non-deprecated path (matplotlib ≥ 3.7); fallback for older builds
+        if cmap_name == "ash_yellow":
+            # Transparent white → warm yellow → deep orange, good on satellite
+            return LinearSegmentedColormap.from_list(
+                "ash_yellow", ["#fffde0", "#ffe066", "#ff9900", "#cc4400"]
+            )
+        if cmap_name == "ash_orange":
+            # Transparent black core → vivid orange → bright yellow-white edge
+            # Designed to be visible on both satellite and street map backgrounds
+            return LinearSegmentedColormap.from_list(
+                "ash_orange",
+                [
+                    (0.00, "#1a0500"),   # near-black (transparent at low alpha)
+                    (0.25, "#7f1900"),   # deep red-brown
+                    (0.50, "#e04000"),   # vivid orange-red
+                    (0.75, "#ff8c00"),   # bright orange
+                    (1.00, "#ffe680"),   # pale yellow (ash edge)
+                ]
+            )
+        # --- standard matplotlib colormaps (non-deprecated API) ---
         try:
             return matplotlib.colormaps[cmap_name]
         except (KeyError, AttributeError):
-            return cm.get_cmap(cmap_name)
+            return cm.get_cmap(cmap_name)          # fallback for older matplotlib
 
     def _array_to_rgba(self, array, cmap_name="inferno"):
         """Normalize *array* to [0,1], map through colormap, return RGBA uint8."""
-        cmap  = VolcanoSimulation.get_colormap(cmap_name)
+        cmap   = VolcanoSimulation.get_colormap(cmap_name)
         vmin, vmax = array.min(), array.max()
         normed = (array - vmin) / (vmax - vmin + 1e-12)
-        rgba = (cmap(normed) * 255).astype(np.uint8)
-        # Alpha proportional to intensity (boosted slightly so faint edges show)
+        rgba   = (cmap(normed) * 255).astype(np.uint8)
+        # Alpha proportional to intensity — boosted so faint edges remain visible
         rgba[..., 3] = (np.clip(normed * 1.5, 0.0, 1.0) * 255).astype(np.uint8)
         return rgba
 
@@ -100,8 +119,8 @@ class VolcanoSimulation:
         if radius <= 0 or max_radius <= 0:
             return np.zeros((*self.dist_grid.shape, 4), dtype=np.uint8)
 
-        scale_factor = float(np.clip(scale / 4.0,        0.0, 1.0))
-        quake_factor = float(np.clip(eq_mag_num / 9.0,   0.0, 1.0))
+        scale_factor = float(np.clip(scale      / 4.0, 0.0, 1.0))
+        quake_factor = float(np.clip(eq_mag_num / 9.0, 0.0, 1.0))
 
         # Inverse-square core (physical ground-shaking analogue)
         inv_sq = 1.0 / (1.0 + (self.dist_grid / max(radius, 1e-6)) ** 2)
@@ -122,7 +141,7 @@ class VolcanoSimulation:
         return self._array_to_rgba(damage, cmap_name)
 
     # ------------------------------------------------------------------
-    # Ash-plume overlay  (completely rewritten for stability)
+    # Ash-plume overlay
     # ------------------------------------------------------------------
     def compute_ash_overlay(
         self,
@@ -130,22 +149,18 @@ class VolcanoSimulation:
         wind_dir,
         wind_speed,
         max_radius,
-        cmap_name="white_gray_black",
+        cmap_name="ash_orange",
     ):
         """
-        Stable Gaussian ash-plume that remains well-behaved across the full
-        wind-speed range (0 – 200 km/h).
+        Stable Gaussian ash-plume, well-behaved across 0–200 km/h wind range.
 
         Model
         -----
-        * The plume axis points downwind (wind_dir + 180°).
-        * Along-axis sigma scales *sub-linearly* with wind speed so it never
-          blows up:  sigma_par = base_spread * (1 + log1p(wind_factor))
-        * Cross-axis sigma shrinks gently with wind:
-          sigma_perp = base_spread / (1 + 0.25 * wind_factor)
-        * A smooth sigmoid mask zeroes out the upwind half.
-        * Mild deterministic turbulence (seeded) adds natural edge variation.
-        * Everything is normalised at the end so intensity is consistent.
+        * Plume axis points downwind (wind_dir + 180°).
+        * Along-axis sigma: sub-linear (log) growth with wind → never blows up.
+        * Cross-axis sigma: gentle narrowing with wind → focused plume.
+        * Smooth sigmoid suppresses the upwind half.
+        * Mild deterministic turbulence (seed=42) adds natural edge variation.
 
         Parameters
         ----------
@@ -153,7 +168,7 @@ class VolcanoSimulation:
         wind_dir   : float – meteorological FROM-direction in degrees
         wind_speed : float – wind speed in km/h
         max_radius : float – hard cutoff in km
-        cmap_name  : str
+        cmap_name  : str   – any key accepted by get_colormap()
         """
         if radius <= 0 or max_radius <= 0:
             return np.zeros((*self.dist_grid.shape, 4), dtype=np.uint8)
@@ -161,28 +176,22 @@ class VolcanoSimulation:
         # ---- plume axis unit vector (downwind) -------------------------
         down_deg = (wind_dir + 180.0) % 360.0
         down_rad = math.radians(down_deg)
-        ux = math.sin(down_rad)   # eastward component
-        uy = math.cos(down_rad)   # northward component
+        ux = math.sin(down_rad)    # eastward component
+        uy = math.cos(down_rad)    # northward component
 
         # ---- project grid onto plume-aligned axes ----------------------
         par  =  self._dlon_km * ux + self._dlat_km * uy   # along plume (+ = downwind)
         perp = -self._dlon_km * uy + self._dlat_km * ux   # across plume
 
-        # ---- wind factor: logarithmic so high speeds don't explode -----
-        # wind_speed = 0  → wind_factor = 0
-        # wind_speed = 10 → wind_factor ≈ 1   (reference)
-        # wind_speed = 50 → wind_factor ≈ 2.0
-        # wind_speed = 200→ wind_factor ≈ 3.0
+        # ---- logarithmic wind factor (stable across full 0–200 km/h) --
+        # wind=0  → 0.0 | wind=10 → 1.0 | wind=50 → ~1.8 | wind=200 → ~3.0
         wind_factor = math.log1p(max(0.0, wind_speed) / 10.0)
 
-        # ---- sigma values (clamped to sensible minimum) ----------------
-        base = max(1.0, radius)          # km; never let base collapse to zero
+        # ---- sigma values ----------------------------------------------
+        base = max(1.0, radius)
 
-        # Along-axis: grows sub-linearly with wind (no blowup)
-        sigma_par  = max(1.5, base * (1.0 + wind_factor))
-
-        # Cross-axis: gently narrows in strong wind (plume gets focused)
-        sigma_perp = max(0.8, base / (1.0 + 0.3 * wind_factor))
+        sigma_par  = max(1.5, base * (1.0 + wind_factor))          # grows sub-linearly
+        sigma_perp = max(0.8, base / (1.0 + 0.3 * wind_factor))    # gently narrows
 
         # ---- core Gaussian ---------------------------------------------
         gauss = np.exp(
@@ -192,26 +201,23 @@ class VolcanoSimulation:
             )
         )
 
-        # ---- upwind suppression via smooth sigmoid ---------------------
-        # Transitions from ~0 (upwind) to ~1 (downwind) over ~sigma_par
-        k     = 3.0 / max(sigma_par, 1e-6)          # steepness
-        bias  = 1.0 / (1.0 + np.exp(-k * par))      # sigmoid
-        gauss = gauss * bias
+        # ---- upwind suppression (smooth sigmoid) -----------------------
+        k    = 3.0 / max(sigma_par, 1e-6)
+        bias = 1.0 / (1.0 + np.exp(-k * par))
+        gauss *= bias
 
-        # ---- distance envelope (radial attenuation) --------------------
-        # Decay over half of max_radius so plume fades before hard cutoff
+        # ---- distance envelope -----------------------------------------
         decay_km = max(1.0, max_radius * 0.5)
         envelope = np.exp(-self.dist_grid / decay_km)
         ash = gauss * envelope
 
         # ---- mild deterministic turbulence at plume edges --------------
-        rng  = np.random.default_rng(seed=42)        # fixed seed → stable renders
-        noise = rng.uniform(0.90, 1.10, size=ash.shape)
-        # Turbulence weight grows toward the plume boundary
-        t_weight = np.clip(self.dist_grid / max(max_radius, 1e-6), 0.0, 1.0) * 0.12
-        ash = ash * (1.0 - t_weight + t_weight * noise)
+        rng    = np.random.default_rng(seed=42)
+        noise  = rng.uniform(0.90, 1.10, size=ash.shape)
+        t_w    = np.clip(self.dist_grid / max(max_radius, 1e-6), 0.0, 1.0) * 0.12
+        ash   *= (1.0 - t_w + t_w * noise)
 
-        # ---- hard spatial cutoff (allow slight bleed past max_radius) --
+        # ---- hard spatial cutoff ---------------------------------------
         ash[self.dist_grid > max_radius * 1.5] = 0.0
 
         # ---- normalise & apply intensity scalar ------------------------
@@ -219,7 +225,6 @@ class VolcanoSimulation:
         if peak > 1e-12:
             ash /= peak
 
-        # Intensity: how much ash is produced (scales with alert radius)
         intensity = float(np.clip(radius / max(max_radius, 1e-6) * 1.4 + 0.1, 0.0, 1.0))
         ash = np.clip(ash * intensity, 0.0, 1.0)
 
