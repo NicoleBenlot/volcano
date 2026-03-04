@@ -70,8 +70,6 @@ volcanoes = [
 
 ALERT_LABELS  = ["🟢 Normal", "🔵 Abnormal", "🟡 Increasing Unrest", "🟠 Minor Eruption", "🔴 Hazardous Eruption"]
 ALERT_RADIUS  = {0: 0, 1: 5, 2: 12, 3: 25, 4: 50}
-# Zoom level per alert level — higher alert = bigger radius = zoom out
-ALERT_ZOOM    = {0: 11, 1: 11, 2: 10, 3: 9, 4: 8}
 # Grid resolution scales with extent so quality stays consistent
 ALERT_GRIDRES = {0: 120, 1: 150, 2: 180, 3: 210, 4: 240}
 
@@ -205,7 +203,6 @@ with st.sidebar:
         label_visibility="collapsed"
     )
     max_radius_km = ALERT_RADIUS[alert_level]
-    zoom_level    = ALERT_ZOOM[alert_level]
     grid_res      = ALERT_GRIDRES[alert_level]
     st.caption(f"Hazard radius: **{max_radius_km} km**" if max_radius_km > 0 else "No active hazard zone")
 
@@ -282,8 +279,7 @@ tile_url  = tile_cfg["url"]
 tile_attr = tile_cfg["attr"]
 
 m = folium.Map(
-    location=[v["lat"], v["lng"]],
-    zoom_start=zoom_level,          
+    location=[v["lat"], v["lng"]],         
     control_scale=True,
     tiles=tile_url,
     attr=tile_attr,
