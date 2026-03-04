@@ -87,14 +87,15 @@ ASH_CMAPS = {
 }
 
 TILES = {
-    "🌍 Hybrid (Google)":             {
+    ''' "🌍 Hybrid (Google)":             {
         "url":  "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
         "attr": "Google Hybrid",
     },
     "🛰 Satellite (Google)":          {
         "url":  "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
         "attr": "Google Satellite",
-    },#remove if blocked by google due to the amount of requests, or if it causes performance issues
+    },'''
+    #remove if blocked by google due to the amount of requests, or if it causes performance issues
     "🛰 Satellite (Esri Clarity)":   {
         "url":  "https://clarity.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
         "attr": "Esri World Imagery Clarity",
