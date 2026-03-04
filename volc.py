@@ -105,6 +105,10 @@ TILES = {
         "url":  "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
         "attr": "Google Hybrid",
     },
+    "🗺 Street (OpenStreetMap)":        {
+        "url":  "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        "attr": "© OpenStreetMap contributors",
+    },
     "🗺 Street (CARTO Dark)":          {
         "url":  "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
         "attr": "© CARTO",
