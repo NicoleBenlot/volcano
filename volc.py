@@ -86,12 +86,40 @@ ASH_CMAPS = {
     "🟣 Plasma":             "plasma",
 }
 
-TILE_SATELLITE = "🛰 Satellite"
-TILE_STREET    = "🗺 Street Map"
+# Best free, no-API-key tile sources:
+# - Esri Clarity: newer Esri endpoint, fewer black ocean tiles than World_Imagery
+# - Esri World Imagery: original, wider zoom support as fallback
+# - Google (via public XYZ): best global coverage, no key needed at low traffic
+# - CARTO Dark Matter: clean dark street map, no key needed
+# - CARTO Positron: clean light street map, no key needed
+TILES = {
+    "🛰 Satellite (Esri Clarity)":    {
+        "url":  "https://clarity.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        "attr": "Esri World Imagery Clarity",
+    },
+    "🛰 Satellite (Google)":           {
+        "url":  "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
+        "attr": "Google Satellite",
+    },
+    "🌍 Hybrid (Google Labels)":       {
+        "url":  "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
+        "attr": "Google Hybrid",
+    },
+    "🗺 Street (CARTO Dark)":          {
+        "url":  "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+        "attr": "© CARTO",
+    },
+    "🗺 Street (CARTO Light)":         {
+        "url":  "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+        "attr": "© CARTO",
+    },
+}
+
+DEFAULT_TILE = "🛰 Satellite (Esri Clarity)"
 
 # ----------------------- Session state -----------------------
 if "active_tile" not in st.session_state:
-    st.session_state.active_tile = TILE_SATELLITE
+    st.session_state.active_tile = DEFAULT_TILE
 if "ash_cmap" not in st.session_state:
     st.session_state.ash_cmap = "🟠 Orange-Red (vivid)"
 
@@ -216,10 +244,13 @@ with st.sidebar:
     show_rings  = st.toggle("Impact Rings (5 km)",  value=True)
 
     st.markdown('<div class="sidebar-section">🛰 Base Map</div>', unsafe_allow_html=True)
+    tile_keys = list(TILES.keys())
+    # Recover gracefully if stored key no longer exists
+    stored = st.session_state.active_tile
+    tile_idx = tile_keys.index(stored) if stored in tile_keys else 0
     chosen_tile = st.radio(
-        "Base map", [TILE_SATELLITE, TILE_STREET],
-        index=0 if st.session_state.active_tile == TILE_SATELLITE else 1,
-        horizontal=True,
+        "Base map", tile_keys,
+        index=tile_idx,
         label_visibility="collapsed",
     )
     st.session_state.active_tile = chosen_tile
@@ -253,12 +284,9 @@ if ash_field is not None and max_radius_km > 0:
 total_hazard_area = math.pi * max_radius_km ** 2  # simple circle as reference
 
 # ----------------------- Map -----------------------
-if st.session_state.active_tile == TILE_SATELLITE:
-    tile_url  = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-    tile_attr = "Esri World Imagery"
-else:
-    tile_url  = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-    tile_attr = "© OpenStreetMap contributors"
+tile_cfg  = TILES[st.session_state.active_tile]
+tile_url  = tile_cfg["url"]
+tile_attr = tile_cfg["attr"]
 
 m = folium.Map(
     location=[v["lat"], v["lng"]],
@@ -360,7 +388,7 @@ st.markdown(f"""
     <span>&#128168; {wind_speed} km/h @ {wind_dir}&deg;</span>
     <span>&#128207; {max_radius_km} km radius</span>
     <span>&#128243; M{eq_magnitude:.1f}</span>
-    <span>{st.session_state.active_tile}</span>
+    <span style='font-size:0.75rem;color:#aaa;border:1px solid #ddd;border-radius:4px;padding:1px 6px;'>{st.session_state.active_tile}</span>
   </div>
 </div>
 """, unsafe_allow_html=True)
