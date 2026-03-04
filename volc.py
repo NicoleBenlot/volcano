@@ -93,33 +93,25 @@ ASH_CMAPS = {
 # - CARTO Dark Matter: clean dark street map, no key needed
 # - CARTO Positron: clean light street map, no key needed
 TILES = {
-    "🛰 Satellite (Esri Clarity)":    {
-        "url":  "https://clarity.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-        "attr": "Esri World Imagery Clarity",
-    },
-    "🛰 Satellite (Google)":           {
-        "url":  "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
-        "attr": "Google Satellite",
-    },
-    "🌍 Hybrid (Google Labels)":       {
+    "🌍 Hybrid (Google)":             {
         "url":  "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
         "attr": "Google Hybrid",
     },
-    "🗺 Street (OpenStreetMap)":        {
+    "🛰 Satellite (Google)":          {
+        "url":  "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
+        "attr": "Google Satellite",
+    },
+    "🛰 Satellite (Esri Clarity)":   {
+        "url":  "https://clarity.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        "attr": "Esri World Imagery Clarity",
+    },
+    "🗺 Street (OpenStreetMap)":      {
         "url":  "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
         "attr": "© OpenStreetMap contributors",
     },
-    "🗺 Street (CARTO Dark)":          {
-        "url":  "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-        "attr": "© CARTO",
-    },
-    "🗺 Street (CARTO Light)":         {
-        "url":  "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-        "attr": "© CARTO",
-    },
 }
 
-DEFAULT_TILE = "🛰 Satellite (Esri Clarity)"
+DEFAULT_TILE = "🌍 Hybrid (Google)"
 
 # ----------------------- Session state -----------------------
 if "active_tile" not in st.session_state:
@@ -245,7 +237,7 @@ with st.sidebar:
     st.markdown('<div class="sidebar-section">🗂 Layers</div>', unsafe_allow_html=True)
     show_ash    = st.toggle("Ash Plume",            value=True)
     show_damage = st.toggle("Damage Intensity",     value=True)
-    show_rings  = st.toggle("Impact Rings (5 km)",  value=True)
+    show_rings  = st.toggle("Impact Rings",  value=True)
 
     st.markdown('<div class="sidebar-section">🛰 Base Map</div>', unsafe_allow_html=True)
     tile_keys = list(TILES.keys())
