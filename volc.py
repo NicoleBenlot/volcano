@@ -209,7 +209,7 @@ with st.sidebar:
     grid_res      = ALERT_GRIDRES[alert_level]
     st.caption(f"Hazard radius: **{max_radius_km} km**" if max_radius_km > 0 else "No active hazard zone")
 
-    st.markdown('<div class="sidebar-section">🌍 Seismic Activity</div>', unsafe_allow_html=True)
+    st.markdown('<div class="checkbox">🌍 Seismic Activity</div>', unsafe_allow_html=True)
     eq_magnitude = st.slider("Earthquake Magnitude", 0.0, 9.0, 3.0, 0.5, format="M %.1f")
 
     st.markdown('<div class="sidebar-section">💨 Wind Conditions</div>', unsafe_allow_html=True)
