@@ -86,12 +86,6 @@ ASH_CMAPS = {
     "🟣 Plasma":             "plasma",
 }
 
-# Best free, no-API-key tile sources:
-# - Esri Clarity: newer Esri endpoint, fewer black ocean tiles than World_Imagery
-# - Esri World Imagery: original, wider zoom support as fallback
-# - Google (via public XYZ): best global coverage, no key needed at low traffic
-# - CARTO Dark Matter: clean dark street map, no key needed
-# - CARTO Positron: clean light street map, no key needed
 TILES = {
     "🌍 Hybrid (Google)":             {
         "url":  "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
@@ -100,7 +94,7 @@ TILES = {
     "🛰 Satellite (Google)":          {
         "url":  "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
         "attr": "Google Satellite",
-    },
+    },#remove if blocked by google due to the amount of requests, or if it causes performance issues
     "🛰 Satellite (Esri Clarity)":   {
         "url":  "https://clarity.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
         "attr": "Esri World Imagery Clarity",
