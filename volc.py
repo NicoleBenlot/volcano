@@ -284,30 +284,41 @@ with st.sidebar:
     st.session_state.active_tile = chosen_tile
 
 # ----------------------- Simulation -----------------------
-radius = max_radius_km / 2 if max_radius_km > 0 else 0.1
-# Extent grows with wind speed so ash plume has room without clipping
+# Base radius — full hazard radius, not halved
+radius = max_radius_km if max_radius_km > 0 else 0.1
+
+# Extent grows with wind AND magnitude so overlays have room
 wind_factor_extent = math.log1p(max(0.0, wind_speed) / 10.0)
-extent_km = max(30, int(max_radius_km * max(1.8, 1.8 + wind_factor_extent)))
+quake_factor       = float(eq_magnitude / 9.0)
+# High magnitude = much larger damage footprint
+mag_radius_mult    = 1.0 + (quake_factor ** 1.2) * 3.0  # M9→4x, M5→1.8x, M1→1.1x
+extent_km = max(30, int(max_radius_km * max(2.0, 2.0 + wind_factor_extent) * min(mag_radius_mult, 3.0)))
 
 sim = get_simulation(v["lng"], v["lat"], grid_res, extent_km)
 
-# Damage — cache spatial shape only, apply alpha fresh each render
-# This is what makes the magnitude slider visually affect the map
-scale_factor = float(alert_level / 4.0)
-quake_factor = float(eq_magnitude / 9.0)
-dmg_alpha    = scale_factor * quake_factor
+# ---- Damage physics ----
+# Alert level sets the BASE hazard zone size
+# Magnitude independently controls: spread radius + visual intensity
+# At M8.9 the damage should be huge and vivid regardless of alert level
+dmg_radius    = radius * mag_radius_mult
+effective_max = max_radius_km * mag_radius_mult
+
+# Alpha: magnitude is the primary driver (0.1→1.0 across M0→M9)
+# Alert level gives a small floor boost so higher alerts always look worse
+alert_boost   = 0.15 * float(alert_level / 4.0)
+dmg_alpha     = float(np.clip(quake_factor ** 0.6 + alert_boost, 0.0, 1.0))
 
 if show_damage and max_radius_km > 0:
     dmg_field = cached_damage_field(
         v["lng"], v["lat"], grid_res, extent_km,
-        radius, max_radius_km
+        dmg_radius, effective_max
     )
     dmg_rgba = field_to_rgba(dmg_field, "violet_yellow", dmg_alpha)
 else:
     dmg_field = None
     dmg_rgba  = None
 
-# Ash — cache spatial shape only, apply alpha fresh each render
+# ---- Ash physics ----
 if show_ash and max_radius_km > 0:
     ash_field = cached_ash_field(
         v["lng"], v["lat"], grid_res, extent_km,
