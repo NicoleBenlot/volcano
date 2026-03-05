@@ -50,8 +50,20 @@ class VolcanoSimulation:
     @staticmethod
     def get_colormap(cmap_name="inferno"):
         if cmap_name == "violet_yellow":
+            # 4-stop colormap with explicit positions:
+            # 0.00 = yellow (outer/low damage)
+            # 0.45 = orange (moderate)
+            # 0.72 = red    (high)
+            # 1.00 = violet/purple (severe centre)
+            # Violet now starts appearing from ~0.72 so even moderate peaks show it
             return LinearSegmentedColormap.from_list(
-                "violet_yellow", ["#ffff00", "#ffa500", "#ff0000", "#800080"]
+                "violet_yellow",
+                [
+                    (0.00, "#ffff00"),
+                    (0.45, "#ffa500"),
+                    (0.72, "#ff0000"),
+                    (1.00, "#7b00d4"),   # vivid violet, not dull #800080
+                ]
             )
         if cmap_name == "white_gray_black":
             return LinearSegmentedColormap.from_list(
@@ -98,9 +110,16 @@ class VolcanoSimulation:
         vmin, vmax = array.min(), array.max()
         normed = (array - vmin) / (vmax - vmin + 1e-12)
 
-        # Smooth the normalized field to eliminate pixelation / blocky transitions
-        normed = gaussian_filter(normed.astype(np.float64), sigma=2.0)
-        normed = np.clip(normed, 0.0, 1.0)
+        # Smooth to eliminate blocky cell-boundary transitions
+        smoothed = gaussian_filter(normed.astype(np.float64), sigma=2.0)
+
+        # CRITICAL: re-normalize after smoothing so the peak is always 1.0.
+        # Without this, gaussian blurring pulls the centre value well below 1.0
+        # and the violet end of the colormap is never reached.
+        peak = smoothed.max()
+        if peak > 1e-12:
+            smoothed /= peak
+        normed = np.clip(smoothed, 0.0, 1.0)
 
         rgba = (cmap(normed) * 255).astype(np.uint8)
         # Base alpha tied to spatial intensity

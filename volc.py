@@ -69,6 +69,10 @@ def field_to_rgba(field, cmap_name, alpha_scale):
     cmap = VolcanoSimulation.get_colormap(cmap_name)
     # Smooth the field before colormapping to eliminate pixelation
     smoothed = gaussian_filter(field.astype(np.float64), sigma=2.0)
+    # Re-normalize after smoothing so peak always hits 1.0 (preserves violet at centre)
+    peak = smoothed.max()
+    if peak > 1e-12:
+        smoothed /= peak
     normed = np.clip(smoothed, 0.0, 1.0)
     rgba = (cmap(normed) * 255).astype(np.uint8)
     base_alpha = np.clip(normed * 1.5, 0.0, 1.0)
