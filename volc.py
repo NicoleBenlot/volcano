@@ -64,8 +64,8 @@ def field_to_rgba(field, cmap_name, alpha_scale):
 
 # ----------------------- Volcano Data -----------------------
 volcanoes = [
-    {"name": "Taal Volcano",          "lat": 14.0097, "lng": 120.9983, "status": "Active"},
     {"name": "Mayon Volcano",         "lat": 13.257,  "lng": 123.685,  "status": "Active"},
+    {"name": "Taal Volcano",          "lat": 14.0097, "lng": 120.9983, "status": "Active"},
     {"name": "Pinatubo Volcano",      "lat": 15.142,  "lng": 120.349,  "status": "Active"},
     {"name": "Kanlaon Volcano",       "lat": 10.412,  "lng": 123.132,  "status": "Active"},
     {"name": "Bulusan Volcano",       "lat": 12.770,  "lng": 124.050,  "status": "Active"},
@@ -89,8 +89,6 @@ volcanoes = [
     {"name": "Camiguin de Babuyanes", "lat": 19.300,  "lng": 121.900,  "status": "Active"},
     {"name": "Mount Everest",         "lat": 27.9881, "lng": 86.9250,  "status": "Inactive"},
     {"name": "Mount Fuji",            "lat": 35.3606, "lng": 138.7274, "status": "Active"},
-    {"name": "Malabuyoc",             "lat": 9.6500,  "lng": 123.3167, "status": "Active"},
-    {"name": "Ginatilan",             "lat": 9.5667,  "lng": 123.3667, "status": "Active"},
 ]
 
 ALERT_LABELS  = ["🟢 Normal", "🔵 Abnormal", "🟡 Increasing Unrest", "🟠 Minor Eruption", "🔴 Hazardous Eruption"]
