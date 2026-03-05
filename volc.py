@@ -9,10 +9,20 @@ import math
 import numpy as np
 from io import BytesIO
 from PIL import Image
+from scipy.ndimage import zoom, gaussian_filter
 
 # ----------------------- Helpers -----------------------
-def array_to_base64_png(array):
-    img = Image.fromarray(array)
+def array_to_base64_png(array, upsample=4):
+    """Convert RGBA uint8 array to base64 PNG with bicubic upsampling for smooth rendering."""
+    # Smooth each channel with gaussian blur before upsampling
+    smoothed = np.zeros_like(array, dtype=np.float32)
+    for c in range(array.shape[2]):
+        smoothed[..., c] = gaussian_filter(array[..., c].astype(np.float32), sigma=1.5)
+    smoothed = np.clip(smoothed, 0, 255).astype(np.uint8)
+    # Bicubic upsample (zoom factor per axis, channel dimension stays 1)
+    upsampled = zoom(smoothed, (upsample, upsample, 1), order=3)
+    upsampled = np.clip(upsampled, 0, 255).astype(np.uint8)
+    img = Image.fromarray(upsampled)
     buf = BytesIO()
     img.save(buf, format="PNG")
     return f"data:image/png;base64,{base64.b64encode(buf.getvalue()).decode('utf-8')}"
@@ -53,10 +63,13 @@ def cached_ash_field(volcano_x, volcano_y, grid_res, extent_km,
     return field
 
 def field_to_rgba(field, cmap_name, alpha_scale):
-    """Convert a normalised field to RGBA uint8 with alpha_scale applied.
+    """Convert a normalised field to RGBA uint8 with alpha_scale applied and gaussian smoothing.
     Runs uncached every render so slider changes are immediately visible."""
+    from scipy.ndimage import gaussian_filter
     cmap = VolcanoSimulation.get_colormap(cmap_name)
-    normed = field  # already [0,1]
+    # Smooth the field before colormapping to eliminate pixelation
+    smoothed = gaussian_filter(field.astype(np.float64), sigma=2.0)
+    normed = np.clip(smoothed, 0.0, 1.0)
     rgba = (cmap(normed) * 255).astype(np.uint8)
     base_alpha = np.clip(normed * 1.5, 0.0, 1.0)
     rgba[..., 3] = (base_alpha * float(np.clip(alpha_scale, 0.0, 1.0)) * 255).astype(np.uint8)
@@ -95,12 +108,6 @@ ALERT_LABELS  = ["🟢 Normal", "🔵 Abnormal", "🟡 Increasing Unrest", "🟠
 ALERT_RADIUS  = {0: 0, 1: 5, 2: 12, 3: 25, 4: 50}
 ALERT_ZOOM    = {0: 11, 1: 11, 2: 10, 3: 9, 4: 8}
 ALERT_GRIDRES = {0: 120, 1: 150, 2: 180, 3: 210, 4: 240}
-# Scientifically grounded default magnitude per alert level (PHIVOLCS/USGS data):
-# Level 0 → background micro-seismicity M0.3–1.5       → default M1.0
-# Level 1 → low-level VT swarms M0.3–2.2 (Bulusan)    → default M2.0
-# Level 2 → increasing VT/LF activity M2.0–3.5         → default M3.5
-# Level 3 → intense seismicity pre-eruption M3–5        → default M4.5
-# Level 4 → eruption-phase, can reach M5–6             → default M5.5
 ALERT_EQ_DEFAULT = {0: 1.0, 1: 2.0, 2: 3.5, 3: 4.5, 4: 5.5}
 
 ASH_CMAPS = {
@@ -282,27 +289,19 @@ with st.sidebar:
     st.session_state.active_tile = chosen_tile
 
 # ----------------------- Simulation -----------------------
-# Base radius — full hazard radius, not halved
 radius = max_radius_km if max_radius_km > 0 else 0.1
 
-# Extent grows with wind AND magnitude so overlays have room
 wind_factor_extent = math.log1p(max(0.0, wind_speed) / 10.0)
 quake_factor       = float(eq_magnitude / 9.0)
-# High magnitude = much larger damage footprint
-mag_radius_mult    = 1.0 + (quake_factor ** 1.2) * 3.0  # M9→4x, M5→1.8x, M1→1.1x
+mag_radius_mult    = 1.0 + (quake_factor ** 1.2) * 3.0
 extent_km = max(30, int(max_radius_km * max(2.0, 2.0 + wind_factor_extent) * min(mag_radius_mult, 3.0)))
 
 sim = get_simulation(v["lng"], v["lat"], grid_res, extent_km)
 
 # ---- Damage physics ----
-# Alert level sets the BASE hazard zone size
-# Magnitude independently controls: spread radius + visual intensity
-# At M8.9 the damage should be huge and vivid regardless of alert level
 dmg_radius    = radius * mag_radius_mult
 effective_max = max_radius_km * mag_radius_mult
 
-# Alpha: magnitude is the primary driver (0.1→1.0 across M0→M9)
-# Alert level gives a small floor boost so higher alerts always look worse
 alert_boost   = 0.15 * float(alert_level / 4.0)
 dmg_alpha     = float(np.clip(quake_factor ** 0.6 + alert_boost, 0.0, 1.0))
 
@@ -372,18 +371,18 @@ if show_damage and max_radius_km > 0:
         fill_opacity=0.07, tooltip=f"Hazard boundary: {max_radius_km} km"
     ).add_to(m)
 
-# Damage overlay
+# Damage overlay — smoothly upsampled PNG
 if show_damage and dmg_rgba is not None:
     folium.raster_layers.ImageOverlay(
-        image=array_to_base64_png(dmg_rgba),
+        image=array_to_base64_png(dmg_rgba, upsample=4),
         bounds=[[sim.lat_min, sim.lon_min], [sim.lat_max, sim.lon_max]],
         opacity=0.75, name="Damage Intensity"
     ).add_to(m)
 
-# Ash overlay
+# Ash overlay — smoothly upsampled PNG
 if show_ash and ash_rgba is not None:
     folium.raster_layers.ImageOverlay(
-        image=array_to_base64_png(ash_rgba),
+        image=array_to_base64_png(ash_rgba, upsample=4),
         bounds=[[sim.lat_min, sim.lon_min], [sim.lat_max, sim.lon_max]],
         opacity=ash_opacity, name="Ash Plume"
     ).add_to(m)

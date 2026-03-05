@@ -3,6 +3,7 @@ import math
 import matplotlib
 import matplotlib.cm as cm
 from matplotlib.colors import LinearSegmentedColormap
+from scipy.ndimage import gaussian_filter
 
 
 class VolcanoSimulation:
@@ -49,8 +50,6 @@ class VolcanoSimulation:
     @staticmethod
     def get_colormap(cmap_name="inferno"):
         if cmap_name == "violet_yellow":
-            # yellow=low (outer edge) → purple=severe (centre)
-            # matches legend: Low=yellow, Moderate=orange, High=red, Severe=purple
             return LinearSegmentedColormap.from_list(
                 "violet_yellow", ["#ffff00", "#ffa500", "#ff0000", "#800080"]
             )
@@ -86,19 +85,23 @@ class VolcanoSimulation:
 
     def _array_to_rgba(self, array, cmap_name="inferno", alpha_scale=1.0):
         """
-        Normalize *array* to [0,1], map through colormap, return RGBA uint8.
+        Normalize *array* to [0,1], apply gaussian smoothing, map through colormap,
+        return RGBA uint8.
+
+        Gaussian smoothing (sigma=2.0) is applied before colormapping to eliminate
+        pixelated/blocky color transitions at cell boundaries.
 
         alpha_scale : float [0,1]
             Multiplier applied to the alpha channel AFTER colormap mapping.
-            This is the key fix — intensity parameters (magnitude, alert level)
-            are passed here instead of being multiplied into the array values,
-            because _array_to_rgba always re-normalises the array, making any
-            pre-multiplication invisible. By scaling alpha directly we get a
-            visible change: low magnitude = faint/transparent, high = opaque.
         """
         cmap = VolcanoSimulation.get_colormap(cmap_name)
         vmin, vmax = array.min(), array.max()
         normed = (array - vmin) / (vmax - vmin + 1e-12)
+
+        # Smooth the normalized field to eliminate pixelation / blocky transitions
+        normed = gaussian_filter(normed.astype(np.float64), sigma=2.0)
+        normed = np.clip(normed, 0.0, 1.0)
+
         rgba = (cmap(normed) * 255).astype(np.uint8)
         # Base alpha tied to spatial intensity
         base_alpha = np.clip(normed * 1.5, 0.0, 1.0)
@@ -129,8 +132,7 @@ class VolcanoSimulation:
         The spatial SHAPE of the damage field is determined by physics (inverse-
         square + exponential falloff). The visual INTENSITY (how opaque/bright
         the overlay appears) is controlled by scale_factor * quake_factor passed
-        as alpha_scale — this is what makes the magnitude slider and alert level
-        actually change how the map looks.
+        as alpha_scale.
 
         Returns (rgba_array, normalised_field).
         """
@@ -151,14 +153,11 @@ class VolcanoSimulation:
         damage = inv_sq * np.exp(-self.dist_grid / falloff_km)
         damage[self.dist_grid > max_radius] = 0.0
 
-        # Normalise shape to [0, 1] — keeps the spatial gradient consistent
+        # Normalise shape to [0, 1]
         peak = damage.max()
         if peak > 1e-12:
             damage /= peak
 
-        # Combined intensity factor drives alpha, NOT the field values
-        # This is the fix: _array_to_rgba re-normalises field internally so
-        # multiplying field values has no effect — alpha_scale is the right lever
         alpha_scale = scale_factor * quake_factor
 
         return self._array_to_rgba(damage, cmap_name, alpha_scale=alpha_scale), damage
@@ -221,7 +220,6 @@ class VolcanoSimulation:
         if peak > 1e-12:
             ash /= peak
 
-        # Intensity as alpha scale — consistent with damage overlay approach
         intensity = float(np.clip(radius / max(max_radius, 1e-6) * 1.4 + 0.1, 0.0, 1.0))
         ash = np.clip(ash, 0.0, 1.0)
 
