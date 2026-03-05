@@ -325,7 +325,8 @@ else:
     dmg_rgba = None
 
 # ---- Ash physics ----
-if show_ash and max_radius_km > 0:
+# Always compute ash_field for stats — regardless of show_ash toggle
+if max_radius_km > 0:
     ash_field = cached_ash_field(
         v["lng"], v["lat"], grid_res, extent_km,
         radius * ash_scale, wind_dir, wind_speed, max_radius_km
@@ -333,11 +334,15 @@ if show_ash and max_radius_km > 0:
     ash_intensity = float(np.clip(
         (radius * ash_scale) / max(max_radius_km, 1e-6) * 1.4 + 0.1, 0.0, 1.0
     ))
-    ash_rgba = field_to_rgba(ash_field, ash_cmap, ash_intensity)
 else:
     ash_field = None
-    ash_rgba  = None
-#this should fix it
+    ash_intensity = 0.0
+
+# Only build RGBA overlay when the layer is toggled on
+if show_ash and ash_field is not None:
+    ash_rgba = field_to_rgba(ash_field, ash_cmap, ash_intensity)
+else:
+    ash_rgba = None
 
 # ----------------------- Stats computation -----------------------
 damage_area_km2 = 0.0
