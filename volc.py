@@ -337,6 +337,7 @@ if show_ash and max_radius_km > 0:
 else:
     ash_field = None
     ash_rgba  = None
+#this should fix it
 
 # ----------------------- Stats computation -----------------------
 damage_area_km2 = 0.0
