@@ -279,7 +279,7 @@ with st.sidebar:
     st.markdown('<div class="sidebar-section">🗂 Layers</div>', unsafe_allow_html=True)
     show_ash    = st.toggle("Ash Plume",            value=True)
     show_damage = st.toggle("Damage Intensity",     value=True)
-    show_rings  = st.toggle("Impact Rings (5 km)",  value=True)
+    show_rings  = st.toggle("Impact Rings",  value=True)# fixed issue
 
     st.markdown('<div class="sidebar-section">🛰 Base Map</div>', unsafe_allow_html=True)
     tile_keys = list(TILES.keys())
@@ -501,3 +501,6 @@ else:
       </div>
     </div>
     """, unsafe_allow_html=True)
+
+
+#test successful
