@@ -309,15 +309,20 @@ effective_max = max_radius_km * mag_radius_mult
 alert_boost   = 0.15 * float(alert_level / 4.0)
 dmg_alpha     = float(np.clip(quake_factor ** 0.6 + alert_boost, 0.0, 1.0))
 
-if show_damage and max_radius_km > 0:
+# Always compute dmg_field for stats — regardless of show_damage toggle
+if max_radius_km > 0:
     dmg_field = cached_damage_field(
         v["lng"], v["lat"], grid_res, extent_km,
         dmg_radius, effective_max
     )
-    dmg_rgba = field_to_rgba(dmg_field, "violet_yellow", dmg_alpha)
 else:
     dmg_field = None
-    dmg_rgba  = None
+
+# Only build RGBA overlay when the layer is toggled on
+if show_damage and dmg_field is not None:
+    dmg_rgba = field_to_rgba(dmg_field, "violet_yellow", dmg_alpha)
+else:
+    dmg_rgba = None
 
 # ---- Ash physics ----
 if show_ash and max_radius_km > 0:
