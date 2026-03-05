@@ -373,7 +373,7 @@ for vdata in volcanoes:
     ).add_to(m)
 
 # Hazard boundary
-if show_damage and max_radius_km > 0:
+if show_rings and max_radius_km > 0:
     folium.Circle(
         location=[v["lat"], v["lng"]], radius=max_radius_km * 1000,
         color="#ff6600", weight=2, fill=True, fill_color="#ff6600",
