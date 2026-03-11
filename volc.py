@@ -423,7 +423,7 @@ class FloatLegend(MacroElement):
 #fixed overlapping issue
 m.add_child(FloatLegend("""
 <div style='
-    position:absolute;bottom:28px;left:28px;
+    position:fixed;bottom:28px;left:28px;
     background:rgba(12,12,18,0.90);
     border:1px solid rgba(255,255,255,0.12);
     border-radius:10px;
