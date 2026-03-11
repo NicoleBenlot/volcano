@@ -423,7 +423,7 @@ class FloatLegend(MacroElement):
 #fixed overlapping issue
 m.add_child(FloatLegend("""
 <div style='
-    position:fixed;bottom:28px;left:28px;
+    position:absolute;bottom:10px;left:10px;
     background:rgba(12,12,18,0.90);
     border:1px solid rgba(255,255,255,0.12);
     border-radius:10px;
@@ -465,7 +465,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ----------------------- Map render -----------------------
-st_folium(m, use_container_width=True, height=820, returned_objects=[])
+st_folium(m, use_container_width=True, height=1100, returned_objects=[])
 
 # ----------------------- Stats bar -----------------------
 if max_radius_km > 0:
