@@ -14,12 +14,10 @@ from scipy.ndimage import zoom, gaussian_filter
 # ----------------------- Helpers -----------------------
 def array_to_base64_png(array, upsample=4):
     """Convert RGBA uint8 array to base64 PNG with bicubic upsampling for smooth rendering."""
-    # Smooth each channel with gaussian blur before upsampling
     smoothed = np.zeros_like(array, dtype=np.float32)
     for c in range(array.shape[2]):
         smoothed[..., c] = gaussian_filter(array[..., c].astype(np.float32), sigma=1.5)
     smoothed = np.clip(smoothed, 0, 255).astype(np.uint8)
-    # Bicubic upsample (zoom factor per axis, channel dimension stays 1)
     upsampled = zoom(smoothed, (upsample, upsample, 1), order=3)
     upsampled = np.clip(upsampled, 0, 255).astype(np.uint8)
     img = Image.fromarray(upsampled)
@@ -27,7 +25,6 @@ def array_to_base64_png(array, upsample=4):
     img.save(buf, format="PNG")
     return f"data:image/png;base64,{base64.b64encode(buf.getvalue()).decode('utf-8')}"
 
-# Cached simulation factory — only rebuilds when volcano/extent changes
 @st.cache_resource(show_spinner=False)
 def get_simulation(volcano_x, volcano_y, grid_res, extent_km):
     return VolcanoSimulation(
@@ -37,11 +34,8 @@ def get_simulation(volcano_x, volcano_y, grid_res, extent_km):
         extent_km=extent_km,
     )
 
-# Cache only the raw spatial fields — alpha is applied at render time so
-# magnitude/alert changes are always visible without cache interference
 @st.cache_data(show_spinner=False)
 def cached_damage_field(volcano_x, volcano_y, grid_res, extent_km, radius, max_radius):
-    """Returns normalised damage field [0,1] — shape only, no intensity baked in."""
     sim = get_simulation(volcano_x, volcano_y, grid_res, extent_km)
     if radius <= 0 or max_radius <= 0:
         return np.zeros((grid_res, grid_res))
@@ -57,19 +51,14 @@ def cached_damage_field(volcano_x, volcano_y, grid_res, extent_km, radius, max_r
 @st.cache_data(show_spinner=False)
 def cached_ash_field(volcano_x, volcano_y, grid_res, extent_km,
                       radius, wind_dir, wind_speed, max_radius):
-    """Returns normalised ash field [0,1] — shape only, no intensity baked in."""
     sim = get_simulation(volcano_x, volcano_y, grid_res, extent_km)
     _, field = sim.compute_ash_overlay(radius, wind_dir, wind_speed, max_radius, "white_gray_black")
     return field
 
 def field_to_rgba(field, cmap_name, alpha_scale):
-    """Convert a normalised field to RGBA uint8 with alpha_scale applied and gaussian smoothing.
-    Runs uncached every render so slider changes are immediately visible."""
     from scipy.ndimage import gaussian_filter
     cmap = VolcanoSimulation.get_colormap(cmap_name)
-    # Smooth the field before colormapping to eliminate pixelation
     smoothed = gaussian_filter(field.astype(np.float64), sigma=2.0)
-    # Re-normalize after smoothing so peak always hits 1.0 (preserves violet at centre)
     peak = smoothed.max()
     if peak > 1e-12:
         smoothed /= peak
@@ -121,6 +110,7 @@ ASH_CMAPS = {
     "🌡 Yellow-Orange-Red":  "YlOrRd",
     "🌫 Grey (classic)":     "white_gray_black",
     "🟣 Plasma":             "plasma",
+    "🔴 Pulse Red":          "pulse_red",   # NEW
 }
 
 TILES = {
@@ -279,7 +269,7 @@ with st.sidebar:
     st.markdown('<div class="sidebar-section">🗂 Layers</div>', unsafe_allow_html=True)
     show_ash    = st.toggle("Ash Plume",            value=True)
     show_damage = st.toggle("Damage Intensity",     value=True)
-    show_rings  = st.toggle("Impact Rings",  value=True)# fixed issue
+    show_rings  = st.toggle("Impact Rings",  value=True)
 
     st.markdown('<div class="sidebar-section">🛰 Base Map</div>', unsafe_allow_html=True)
     tile_keys = list(TILES.keys())
@@ -309,7 +299,6 @@ effective_max = max_radius_km * mag_radius_mult
 alert_boost   = 0.15 * float(alert_level / 4.0)
 dmg_alpha     = float(np.clip(quake_factor ** 0.6 + alert_boost, 0.0, 1.0))
 
-# Always compute dmg_field for stats — regardless of show_damage toggle
 if max_radius_km > 0:
     dmg_field = cached_damage_field(
         v["lng"], v["lat"], grid_res, extent_km,
@@ -318,14 +307,12 @@ if max_radius_km > 0:
 else:
     dmg_field = None
 
-# Only build RGBA overlay when the layer is toggled on
 if show_damage and dmg_field is not None:
     dmg_rgba = field_to_rgba(dmg_field, "violet_yellow", dmg_alpha)
 else:
     dmg_rgba = None
 
 # ---- Ash physics ----
-# Always compute ash_field for stats — regardless of show_ash toggle
 if max_radius_km > 0:
     ash_field = cached_ash_field(
         v["lng"], v["lat"], grid_res, extent_km,
@@ -338,7 +325,6 @@ else:
     ash_field = None
     ash_intensity = 0.0
 
-# Only build RGBA overlay when the layer is toggled on
 if show_ash and ash_field is not None:
     ash_rgba = field_to_rgba(ash_field, ash_cmap, ash_intensity)
 else:
@@ -386,7 +372,7 @@ if show_rings and max_radius_km > 0:
         fill_opacity=0.07, tooltip=f"Hazard boundary: {max_radius_km} km"
     ).add_to(m)
 
-# Damage overlay — smoothly upsampled PNG
+# Damage overlay
 if show_damage and dmg_rgba is not None:
     folium.raster_layers.ImageOverlay(
         image=array_to_base64_png(dmg_rgba, upsample=4),
@@ -394,13 +380,50 @@ if show_damage and dmg_rgba is not None:
         opacity=0.75, name="Damage Intensity"
     ).add_to(m)
 
-# Ash overlay — smoothly upsampled PNG
+# Ash overlay
 if show_ash and ash_rgba is not None:
-    folium.raster_layers.ImageOverlay(
+    ash_overlay = folium.raster_layers.ImageOverlay(
         image=array_to_base64_png(ash_rgba, upsample=4),
         bounds=[[sim.lat_min, sim.lon_min], [sim.lat_max, sim.lon_max]],
         opacity=ash_opacity, name="Ash Plume"
-    ).add_to(m)
+    )
+    ash_overlay.add_to(m)
+
+    # Inject JS pulse animation directly into the Folium iframe document
+    # when Pulse Red is selected — targets the ash overlay <img> by its layer name
+    if ash_cmap == "pulse_red":
+        pulse_js = MacroElement()
+        pulse_js._template = Template("""
+        {% macro script(this, kwargs) %}
+        (function() {
+            function startPulse() {
+                // Find the ImageOverlay img element — it's the last img added to .leaflet-overlay-pane
+                var pane = document.querySelector('.leaflet-overlay-pane');
+                if (!pane) { setTimeout(startPulse, 200); return; }
+                var imgs = pane.querySelectorAll('img');
+                if (!imgs.length) { setTimeout(startPulse, 200); return; }
+                // The ash overlay is the last img in the overlay pane
+                var el = imgs[imgs.length - 1];
+                el.style.transition = 'none';
+                var start = null;
+                var baseOpacity = """ + str(ash_opacity) + """;
+                function step(ts) {
+                    if (!start) start = ts;
+                    // Full cycle = 1800ms: pulse minOpacity → baseOpacity → minOpacity
+                    // minOpacity ensures edges always remain visible
+                    var t = ((ts - start) % 1800) / 1800;          // 0..1 repeating
+                    var ease = Math.sin(t * Math.PI);               // 0→1→0 smooth
+                    var minOpacity = baseOpacity * 0.35;            // never fully transparent
+                    el.style.opacity = (minOpacity + ease * (baseOpacity - minOpacity)).toFixed(3);
+                    requestAnimationFrame(step);
+                }
+                requestAnimationFrame(step);
+            }
+            startPulse();
+        })();
+        {% endmacro %}
+        """)
+        m.add_child(pulse_js)
 
 # Impact rings
 if show_rings and max_radius_km > 0:
@@ -420,7 +443,7 @@ class FloatLegend(MacroElement):
         """ + html + """
         {% endmacro %}
         """)
-#fixed overlapping issue
+
 m.add_child(FloatLegend("""
 <div style='
     position:absolute;bottom:10px;left:10px;

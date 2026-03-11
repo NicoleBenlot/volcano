@@ -90,6 +90,17 @@ class VolcanoSimulation:
                     (1.00, "#ffffcc"),
                 ]
             )
+        # --- NEW: Pulse Red colormap ---
+        if cmap_name == "pulse_red":
+            return LinearSegmentedColormap.from_list(
+                "pulse_red", [
+                    (0.00, "#1a0000"),
+                    (0.25, "#660000"),
+                    (0.55, "#cc0000"),
+                    (0.80, "#ff2200"),
+                    (1.00, "#ff6644"),
+                ]
+            )
         try:
             return matplotlib.colormaps[cmap_name]
         except (KeyError, AttributeError):
@@ -202,6 +213,12 @@ class VolcanoSimulation:
             empty = np.zeros((*self.dist_grid.shape, 4), dtype=np.uint8)
             return empty, np.zeros(self.dist_grid.shape)
 
+        # wind_bias: 0.0 at no wind (symmetric circle) → 1.0 at ~100 km/h (full downwind plume)
+        wind_bias = float(np.clip(wind_speed / 100.0, 0.0, 1.0))
+        wind_factor = math.log1p(max(0.0, wind_speed) / 10.0)
+        base = max(1.0, radius)
+
+        # Always compute directional axes so we can blend smoothly
         down_deg = (wind_dir + 180.0) % 360.0
         down_rad = math.radians(down_deg)
         ux = math.sin(down_rad)
@@ -210,19 +227,21 @@ class VolcanoSimulation:
         par  =  self._dlon_km * ux + self._dlat_km * uy
         perp = -self._dlon_km * uy + self._dlat_km * ux
 
-        wind_factor = math.log1p(max(0.0, wind_speed) / 10.0)
-        base = max(1.0, radius)
-        sigma_par  = max(1.5, base * (1.0 + wind_factor))
-        sigma_perp = max(0.8, base / (1.0 + 0.3 * wind_factor))
+        # At 0 wind: sigma_par == sigma_perp == base (symmetric)
+        # At high wind: par elongates downwind, perp narrows
+        sigma_par  = max(1.5, base * (1.0 + wind_factor * wind_bias))
+        sigma_perp = max(0.8, base / (1.0 + 0.3 * wind_factor * wind_bias))
 
         gauss = np.exp(
             -0.5 * ((par / sigma_par) ** 2 + (perp / sigma_perp) ** 2)
         )
 
-        # Suppress upwind half with sigmoid
+        # Upwind suppression sigmoid — scales from 0 (no suppression) to full at high wind
+        # At 0 wind, bias_weight=0 so gauss stays symmetric around volcano centre
         k    = 3.0 / max(sigma_par, 1e-6)
-        bias = 1.0 / (1.0 + np.exp(-k * par))
-        gauss *= bias
+        sigmoid = 1.0 / (1.0 + np.exp(-k * par))
+        # blend: no suppression at 0 wind, full suppression at high wind
+        gauss *= (1.0 - wind_bias) + wind_bias * sigmoid * 2.0
 
         # Radial envelope — no hard cutoff so plume extends naturally
         decay_km = max(1.0, max_radius * 0.6)
