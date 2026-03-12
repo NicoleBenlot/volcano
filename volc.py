@@ -72,27 +72,27 @@ def field_to_rgba(field, cmap_name, alpha_scale):
 volcanoes = [
     {"name": "Mayon Volcano",         "lat": 13.257,  "lng": 123.685,  "status": "Active"},
     {"name": "Taal Volcano",          "lat": 14.0097, "lng": 120.9983, "status": "Active"},
-    {"name": "Pinatubo Volcano",      "lat": 15.142,  "lng": 120.349,  "status": "Active"},
-    {"name": "Kanlaon Volcano",       "lat": 10.412,  "lng": 123.132,  "status": "Active"},
-    {"name": "Bulusan Volcano",       "lat": 12.770,  "lng": 124.050,  "status": "Active"},
-    {"name": "Mount Apo",             "lat": 6.987,   "lng": 125.255,  "status": "Potentially Active"},
-    {"name": "Mount Pulag",           "lat": 16.611,  "lng": 120.889,  "status": "Inactive"},
-    {"name": "Mount Arayat",          "lat": 15.200,  "lng": 120.742,  "status": "Potentially Active"},
-    {"name": "Leonard Kniaseff",      "lat": 7.3935,   "lng": 126.0641,  "status": "Potentially Active"},
-    {"name": "Cabalian",              "lat": 10.200,  "lng": 125.200,  "status": "Potentially Active"},
-    {"name": "Isarog",                "lat": 13.600,  "lng": 123.400,  "status": "Potentially Active"},
-    {"name": "Babuyan Claro",         "lat": 19.500,  "lng": 121.900,  "status": "Active"},
-    {"name": "Biliran",               "lat": 11.520,  "lng": 124.530,  "status": "Active"},
-    {"name": "Cagua",                 "lat": 18.220,  "lng": 122.120,  "status": "Active"},
-    {"name": "Didicas",               "lat": 19.080,  "lng": 122.200,  "status": "Active"},
-    {"name": "Iraya",                 "lat": 20.366,  "lng": 122.000,  "status": "Active"},
-    {"name": "Matutum",               "lat": 6.350,   "lng": 125.070,  "status": "Active"},
-    {"name": "Makaturing",            "lat": 7.650,   "lng": 124.300,  "status": "Active"},
-    {"name": "Musuan",                "lat": 7.600,   "lng": 125.070,  "status": "Active"},
-    {"name": "Parker",                "lat": 6.120,   "lng": 124.890,  "status": "Active"},
-    {"name": "Ragang",                "lat": 7.700,   "lng": 124.500,  "status": "Active"},
-    {"name": "Smith Volcano",         "lat": 19.525,  "lng": 121.913,  "status": "Active"},
-    {"name": "Camiguin de Babuyanes", "lat": 19.300,  "lng": 121.900,  "status": "Active"}
+    {"name": "Pinatubo Volcano",      "lat": 15.1429,  "lng": 120.3496,  "status": "Active"},
+    {"name": "Kanlaon Volcano",       "lat": 10.4116,  "lng": 123.1330,  "status": "Active"},
+    {"name": "Bulusan Volcano",       "lat": 12.7692,  "lng": 124.0567,  "status": "Active"},
+    {"name": "Mount Apo",             "lat": 6.9875,   "lng": 125.2710,  "status": "Potentially Active"},
+    {"name": "Mount Pulag",           "lat": 16.5977,  "lng": 120.8988,  "status": "Inactive"},
+    {"name": "Mount Arayat",          "lat": 15.2052,  "lng": 120.7425,  "status": "Potentially Active"},
+    {"name": "Leonard Kniaseff",      "lat": 7.39359,   "lng": 126.06418,  "status": "Potentially Active"},
+    {"name": "Cabalian",              "lat": 10.27972,  "lng": 125.21556,  "status": "Potentially Active"},
+    {"name": "Isarog",                "lat": 13.66,  "lng": 123.38,  "status": "Potentially Active"},
+    {"name": "Babuyan Claro",         "lat": 19.524,  "lng": 121.95,  "status": "Active"},
+    {"name": "Biliran",               "lat": 11.35,  "lng": 124.29,  "status": "Active"},
+    {"name": "Cagua",                 "lat": 18.2146,  "lng": 122.1542,  "status": "Active"},
+    {"name": "Didicas",               "lat": 19.0767,  "lng": 122.2017,  "status": "Active"},
+    {"name": "Iraya",                 "lat": 20.29,  "lng": 122.01,  "status": "Active"},
+    {"name": "Matutum",               "lat": 6.3606,   "lng": 125.0747,  "status": "Active"},
+    {"name": "Makaturing",            "lat": 7.650,   "lng": 124.32,  "status": "Active"},
+    {"name": "Musuan",                "lat": 7.8706,   "lng": 125.0691,  "status": "Active"},
+    {"name": "Parker",                "lat": 6.113,   "lng": 124.892,  "status": "Active"},
+    {"name": "Ragang",                "lat": 7.7167,   "lng": 124.533,  "status": "Active"},
+    {"name": "Smith Volcano",         "lat": 19.5372,  "lng": 121.9075,  "status": "Active"},
+    {"name": "Camiguin de Babuyanes", "lat": 18.83,  "lng": 121.86,  "status": "Active"}
 ]
 
 ALERT_LABELS  = ["🟢 Normal", "🔵 Abnormal", "🟡 Increasing Unrest", "🟠 Minor Eruption", "🔴 Hazardous Eruption"]
@@ -529,4 +529,5 @@ else:
 
 
 #test successful
+
 
