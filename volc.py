@@ -92,14 +92,11 @@ volcanoes = [
     {"name": "Parker",                "lat": 6.120,   "lng": 124.890,  "status": "Active"},
     {"name": "Ragang",                "lat": 7.700,   "lng": 124.500,  "status": "Active"},
     {"name": "Smith Volcano",         "lat": 19.525,  "lng": 121.913,  "status": "Active"},
-    {"name": "Camiguin de Babuyanes", "lat": 19.300,  "lng": 121.900,  "status": "Active"},
-    {"name": "Mount Everest",         "lat": 27.9881, "lng": 86.9250,  "status": "Inactive"},
-    {"name": "Mount Fuji",            "lat": 35.3606, "lng": 138.7274, "status": "Active"},
+    {"name": "Camiguin de Babuyanes", "lat": 19.300,  "lng": 121.900,  "status": "Active"}
 ]
 
 ALERT_LABELS  = ["🟢 Normal", "🔵 Abnormal", "🟡 Increasing Unrest", "🟠 Minor Eruption", "🔴 Hazardous Eruption"]
 ALERT_RADIUS  = {0: 0, 1: 5, 2: 12, 3: 25, 4: 50}
-ALERT_ZOOM    = {0: 11, 1: 11, 2: 10, 3: 9, 4: 8}
 ALERT_GRIDRES = {0: 120, 1: 150, 2: 180, 3: 210, 4: 240}
 ALERT_EQ_DEFAULT = {0: 1.0, 1: 2.0, 2: 3.5, 3: 4.5, 4: 5.5}
 
@@ -231,7 +228,6 @@ with st.sidebar:
         label_visibility="collapsed"
     )
     max_radius_km = ALERT_RADIUS[alert_level]
-    zoom_level    = ALERT_ZOOM[alert_level]
     grid_res      = ALERT_GRIDRES[alert_level]
     st.caption(f"Hazard radius: **{max_radius_km} km**" if max_radius_km > 0 else "No active hazard zone")
 
@@ -251,7 +247,7 @@ with st.sidebar:
     st.markdown('<div class="sidebar-section">💨 Wind Conditions</div>', unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1:
-        wind_speed = st.number_input("Speed (km/h)", min_value=0, max_value=200, value=10, step=5)
+        wind_speed = st.number_input("Speed (km/h)", min_value=0, max_value=100, value=10, step=5)
     with c2:
         wind_dir = st.number_input("Direction (°)", min_value=0, max_value=359, value=90, step=5)
     ash_scale = st.slider("Ash Spread Scale", 0.1, 2.0, 1.0, 0.1)
@@ -347,7 +343,7 @@ tile_attr = tile_cfg["attr"]
 
 m = folium.Map(
     location=[v["lat"], v["lng"]],
-    zoom_start=zoom_level,
+    zoom_start=10,
     control_scale=True,
     tiles=tile_url,
     attr=tile_attr,
@@ -488,7 +484,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ----------------------- Map render -----------------------
-st_folium(m, use_container_width=True, height=1100, returned_objects=[])
+st_folium(m, use_container_width=True, height=1100, returned_objects=[], key=selected_name)
 
 # ----------------------- Stats bar -----------------------
 if max_radius_km > 0:

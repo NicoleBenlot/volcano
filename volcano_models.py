@@ -204,21 +204,25 @@ class VolcanoSimulation:
         cmap_name="ash_orange",
     ):
         """
-        Stable Gaussian ash-plume, well-behaved across 0–200 km/h.
-        No hard spatial cutoff — envelope handles falloff naturally so
-        strong-wind plumes extend beyond the hazard circle correctly.
+        Stable Gaussian ash-plume, fully continuous across 0-200 km/h.
+        Every parameter is a smooth function of wind_speed — no steps or branches.
+        At 0 wind: perfect symmetric circle centred on volcano.
+        As wind increases: plume continuously shifts, elongates and narrows downwind.
         Returns (rgba_array, normalised_field).
         """
         if radius <= 0 or max_radius <= 0:
             empty = np.zeros((*self.dist_grid.shape, 4), dtype=np.uint8)
             return empty, np.zeros(self.dist_grid.shape)
 
-        # wind_bias: 0.0 at no wind (symmetric circle) → 1.0 at ~100 km/h (full downwind plume)
-        wind_bias = float(np.clip(wind_speed / 100.0, 0.0, 1.0))
-        wind_factor = math.log1p(max(0.0, wind_speed) / 10.0)
         base = max(1.0, radius)
+        ws   = max(0.0, float(wind_speed))
 
-        # Always compute directional axes so we can blend smoothly
+        # wind_bias: 0.0 at calm → 1.0 at 100 km/h (fully continuous)
+        wind_bias   = float(np.clip(ws / 100.0, 0.0, 1.0))  # caps at 100 km/h
+        # wind_factor: logarithmic — grows meaningfully across the full 0-200 range
+        wind_factor = math.log1p(ws / 5.0)
+
+        # Directional axes — always computed; wind_bias=0 keeps them irrelevant at calm
         down_deg = (wind_dir + 180.0) % 360.0
         down_rad = math.radians(down_deg)
         ux = math.sin(down_rad)
@@ -227,24 +231,29 @@ class VolcanoSimulation:
         par  =  self._dlon_km * ux + self._dlat_km * uy
         perp = -self._dlon_km * uy + self._dlat_km * ux
 
-        # At 0 wind: sigma_par == sigma_perp == base (symmetric)
-        # At high wind: par elongates downwind, perp narrows
-        sigma_par  = max(1.5, base * (1.0 + wind_factor * wind_bias))
-        sigma_perp = max(0.8, base / (1.0 + 0.3 * wind_factor * wind_bias))
+        # Center shift: plume peak moves continuously downwind with speed
+        # 0 km/h → no shift; 200 km/h → shifts ~80% of radius downwind
+        center_shift = wind_bias * base * 0.8
+        par_shifted  = par - center_shift
+
+        # Sigma: continuously elongates downwind and narrows cross-wind with speed
+        # At 0 wind: sigma_par == sigma_perp == base (symmetric circle)
+        # At 200 km/h: strongly elongated torpedo shape
+        sigma_par  = max(1.5, base * (1.0 + wind_factor * wind_bias * 2.5))
+        sigma_perp = max(0.6, base / (1.0 + wind_factor * wind_bias * 1.2))
 
         gauss = np.exp(
-            -0.5 * ((par / sigma_par) ** 2 + (perp / sigma_perp) ** 2)
+            -0.5 * ((par_shifted / sigma_par) ** 2 + (perp / sigma_perp) ** 2)
         )
 
-        # Upwind suppression sigmoid — scales from 0 (no suppression) to full at high wind
-        # At 0 wind, bias_weight=0 so gauss stays symmetric around volcano centre
-        k    = 3.0 / max(sigma_par, 1e-6)
-        sigmoid = 1.0 / (1.0 + np.exp(-k * par))
-        # blend: no suppression at 0 wind, full suppression at high wind
-        gauss *= (1.0 - wind_bias) + wind_bias * sigmoid * 2.0
+        # Upwind suppression: continuously ramps from 0 (calm) to full (high wind)
+        # At 0 wind: multiplier = 1.0 everywhere (no suppression, stays symmetric)
+        k       = 4.0 / max(sigma_par, 1e-6)
+        sigmoid = 1.0 / (1.0 + np.exp(-k * par_shifted))
+        gauss  *= (1.0 - wind_bias) + wind_bias * sigmoid * 2.0
 
-        # Radial envelope — no hard cutoff so plume extends naturally
-        decay_km = max(1.0, max_radius * 0.6)
+        # Radial envelope: decay grows with wind so plume reaches further at high speed
+        decay_km = max(1.0, max_radius * (0.5 + wind_bias * 1.2))
         envelope = np.exp(-self.dist_grid / decay_km)
         ash = gauss * envelope
 
