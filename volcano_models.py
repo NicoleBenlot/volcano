@@ -1,6 +1,7 @@
 import numpy as np
 import math
 import matplotlib
+matplotlib.use("Agg")
 import matplotlib.cm as cm
 from matplotlib.colors import LinearSegmentedColormap
 from scipy.ndimage import gaussian_filter
@@ -103,8 +104,12 @@ class VolcanoSimulation:
             )
         try:
             return matplotlib.colormaps[cmap_name]
-        except (KeyError, AttributeError):
-            return cm.get_cmap(cmap_name)
+        except Exception:
+            try:
+                return cm.get_cmap(cmap_name)
+            except ValueError:
+        # final safe fallback
+                return matplotlib.colormaps["inferno"]
 
     def _array_to_rgba(self, array, cmap_name="inferno", alpha_scale=1.0):
         """
@@ -271,3 +276,4 @@ class VolcanoSimulation:
         ash = np.clip(ash, 0.0, 1.0)
 
         return self._array_to_rgba(ash, cmap_name, alpha_scale=intensity), ash
+
