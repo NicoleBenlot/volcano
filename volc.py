@@ -92,7 +92,9 @@ volcanoes = [
     {"name": "Parker",                "lat": 6.113,   "lng": 124.892,  "status": "Active"},
     {"name": "Ragang",                "lat": 7.7167,   "lng": 124.533,  "status": "Active"},
     {"name": "Smith Volcano",         "lat": 19.5372,  "lng": 121.9075,  "status": "Active"},
-    {"name": "Camiguin de Babuyanes", "lat": 18.83,  "lng": 121.86,  "status": "Active"}
+    {"name": "Camiguin de Babuyanes", "lat": 18.83,  "lng": 121.86,  "status": "Active"},
+    {"name": "Mount Makiling", "lat": 14.1364,  "lng": 121.1944,  "status": "Inactive"},
+    {"name": "Mount Patoc", "lat": 17.1461,  "lng": 120.9817,  "status": "Inactive"}
 ]
 
 ALERT_LABELS  = ["🟢 Normal", "🔵 Abnormal", "🟡 Increasing Unrest", "🟠 Minor Eruption", "🔴 Hazardous Eruption"]
@@ -529,5 +531,6 @@ else:
 
 
 #test successful
+
 
 
