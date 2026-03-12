@@ -53,3 +53,13 @@
     {"name": "Colima", "lat": 19.5140, "lng": -103.6200, "status": "Active"},
     {"name": "Paricutin", "lat": 19.4930, "lng": -102.2510, "status": "Dormant"},
     {"name": "Mount Erebus", "lat": -77.5300, "lng": 167.1700, "status": "Active"}
+
+
+        "🌍 Hybrid (Google)":             {
+        "url":  "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
+        "attr": "Google Hybrid",
+    },
+    "🛰 Satellite (Google)":          {
+        "url":  "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
+        "attr": "Google Satellite",
+    },
