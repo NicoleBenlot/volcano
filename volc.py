@@ -78,7 +78,7 @@ volcanoes = [
     {"name": "Mount Apo",             "lat": 6.987,   "lng": 125.255,  "status": "Potentially Active"},
     {"name": "Mount Pulag",           "lat": 16.611,  "lng": 120.889,  "status": "Inactive"},
     {"name": "Mount Arayat",          "lat": 15.200,  "lng": 120.742,  "status": "Potentially Active"},
-    {"name": "Leonard Kniaseff",      "lat": 7.100,   "lng": 125.800,  "status": "Potentially Active"},
+    {"name": "Leonard Kniaseff",      "lat": 7.3935,   "lng": 126.0641,  "status": "Potentially Active"},
     {"name": "Cabalian",              "lat": 10.200,  "lng": 125.200,  "status": "Potentially Active"},
     {"name": "Isarog",                "lat": 13.600,  "lng": 123.400,  "status": "Potentially Active"},
     {"name": "Babuyan Claro",         "lat": 19.500,  "lng": 121.900,  "status": "Active"},
@@ -529,3 +529,4 @@ else:
 
 
 #test successful
+
