@@ -242,7 +242,7 @@ with st.sidebar:
     st.markdown('<div class="sidebar-section">💨 Wind Conditions</div>', unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1:
-        wind_speed = st.number_input("Speed (km/h)", min_value=0, max_value=100, value=10, step=5)
+        wind_speed = st.number_input("Speed (km/h)", min_value=0, max_value=100, value=0, step=5)
     with c2:
         wind_dir = st.number_input("Direction (°)", min_value=0, max_value=359, value=90, step=5)
     ash_scale = st.slider("Ash Spread Scale", 0.1, 2.0, 1.0, 0.1)
@@ -524,6 +524,7 @@ else:
 
 
 #test successful
+
 
 
 
