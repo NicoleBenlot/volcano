@@ -137,7 +137,7 @@ if "ash_cmap" not in st.session_state:
     st.session_state.ash_cmap = "🌫 Grey (classic)"
 
 # ----------------------- Page Config -----------------------
-st.set_page_config(layout="wide", page_title="Volcano Hazard-Mapping Simulation", page_icon="🌋")
+st.set_page_config(layout="wide", page_title="Volcano Hazard-Mapping Simulation", page_icon="https://www.flaticon.com/free-icon/volcano_2076995?term=volcano&page=1&position=18&origin=search&related_id=2076995")
 
 st.markdown("""
 <style>
@@ -524,6 +524,7 @@ else:
 
 
 #test successful
+
 
 
 
