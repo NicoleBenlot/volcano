@@ -90,7 +90,7 @@ volcanoes = [
     {"name": "Makaturing",            "lat": 7.650,   "lng": 124.32,  "status": "Active"},
     {"name": "Musuan",                "lat": 7.8706,   "lng": 125.0691,  "status": "Active"},
     {"name": "Parker",                "lat": 6.113,   "lng": 124.892,  "status": "Active"},
-    {"name": "Ragang",                "lat": 7.7167,   "lng": 124.533,  "status": "Active"},
+    {"name": "Ragang",                "lat": 7.69066,   "lng": 124.50639,  "status": "Active"},
     {"name": "Smith Volcano",         "lat": 19.5372,  "lng": 121.9075,  "status": "Active"},
     {"name": "Camiguin de Babuyanes", "lat": 18.83,  "lng": 121.86,  "status": "Active"},
     {"name": "Mount Makiling", "lat": 14.1364,  "lng": 121.1944,  "status": "Inactive"},
