@@ -47,7 +47,3 @@ streamlit run volc.py
 ## Requirements
 
 `streamlit`, `folium`, `streamlit-folium`, `numpy`, `matplotlib`, `Pillow`, `scipy`
-
-## License
-
-MIT
